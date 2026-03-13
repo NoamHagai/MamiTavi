@@ -12,6 +12,7 @@ import { auth, db } from '../firebase'
 import toast from 'react-hot-toast'
 
 const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 // יצירת/עדכון פרופיל ב-Firestore אחרי כניסה עם Google
 async function ensureUserProfile(user) {

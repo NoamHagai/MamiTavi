@@ -8,18 +8,18 @@ import { db } from '../firebase'
 import toast from 'react-hot-toast'
 
 const CATEGORIES = [
-  { id: 'produce',  label: 'ירקות ופירות' },
-  { id: 'dairy',    label: 'חלב וביצים' },
-  { id: 'bakery',   label: 'מאפים' },
-  { id: 'meat',     label: 'בשר ודגים' },
-  { id: 'frozen',   label: 'קפואים' },
-  { id: 'pantry',   label: 'מזווה' },
-  { id: 'hygiene',  label: 'היגיינה' },
-  { id: 'other',    label: 'אחר' },
+  { id: 'produce',  label: 'ירקות ופירות', emoji: '🥦' },
+  { id: 'dairy',    label: 'חלב וביצים',   emoji: '🥛' },
+  { id: 'bakery',   label: 'מאפים',        emoji: '🥖' },
+  { id: 'meat',     label: 'בשר ודגים',    emoji: '🥩' },
+  { id: 'frozen',   label: 'קפואים',       emoji: '🧊' },
+  { id: 'pantry',   label: 'מזווה',        emoji: '🥫' },
+  { id: 'hygiene',  label: 'היגיינה',      emoji: '🧴' },
+  { id: 'other',    label: 'אחר',          emoji: '📦' },
 ]
 
-function getCatLabel(id) {
-  return CATEGORIES.find(c => c.id === id)?.label ?? 'אחר'
+function getCat(id) {
+  return CATEGORIES.find(c => c.id === id) ?? { label: 'אחר', emoji: '📦' }
 }
 
 export default function ShoppingList({ user, profile, listId }) {
@@ -118,8 +118,9 @@ export default function ShoppingList({ user, profile, listId }) {
     <div style={s.page}>
       <div style={s.summary}>
         <span style={s.summaryText}>
-          <strong>{pending.length}</strong> פריטים לקנות
-          {bought.length > 0 && <span style={{ color: 'var(--sage)', marginRight: '10px' }}> · {bought.length} נרכשו</span>}
+          <strong style={{ color: 'var(--navy)', fontSize: '16px' }}>{pending.length}</strong>
+          <span> פריטים לקנות</span>
+          {bought.length > 0 && <span style={{ color: 'var(--green)', marginRight: '10px' }}> · {bought.length} ✓</span>}
         </span>
         {masterProducts.length > 0 && (
           <button style={s.masterBtn} onClick={() => setShowMasterPicker(true)}>
@@ -131,14 +132,18 @@ export default function ShoppingList({ user, profile, listId }) {
       <div style={s.content}>
         {pending.length === 0 && (
           <div style={s.empty}>
-            <p style={s.emptyTitle}>רשימת הקניות ריקה</p>
-            <p style={s.emptyDesc}>הוסף פריטים או בחר מהרשימה הכללית</p>
+            <p style={s.emptyIcon}>🛒</p>
+            <p style={s.emptyTitle}>הרשימה ריקה</p>
+            <p style={s.emptyDesc}>לחץ + להוסיף פריט</p>
           </div>
         )}
 
         {Object.keys(grouped).map(cat => (
           <div key={cat} style={s.group}>
-            <p style={s.catLabel}>{getCatLabel(cat)}</p>
+            <p style={s.catLabel}>
+              <span style={s.catEmoji}>{getCat(cat).emoji}</span>
+              {getCat(cat).label}
+            </p>
             {grouped[cat].map((item, i) => (
               <ItemRow key={item.id} item={item} delay={i * 0.03}
                 onToggle={() => toggleBought(item)} onDelete={() => deleteItem(item.id)}
@@ -174,9 +179,9 @@ export default function ShoppingList({ user, profile, listId }) {
               <input className="input" placeholder="שם הפריט..." value={newItem} onChange={e => setNewItem(e.target.value)} autoFocus />
               <input className="input" placeholder="כמות (אופציונלי)" value={newQty} onChange={e => setNewQty(e.target.value)} />
               <select className="input" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
-                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
               </select>
-              <button className="btn-primary" type="submit" disabled={!newItem.trim()} style={{ padding: '13px' }}>הוסף לרשימה</button>
+              <button className="btn-primary" type="submit" disabled={!newItem.trim()} style={{ padding: '14px', fontSize: '16px' }}>הוסף לרשימה</button>
             </form>
           </div>
         </div>
@@ -190,15 +195,18 @@ export default function ShoppingList({ user, profile, listId }) {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {Object.keys(masterGrouped).map(cat => (
                 <div key={cat}>
-                  <p style={s.catLabel}>{getCatLabel(cat)}</p>
+                  <p style={s.catLabel}>
+                    <span style={s.catEmoji}>{getCat(cat).emoji}</span>
+                    {getCat(cat).label}
+                  </p>
                   {masterGrouped[cat].map(p => {
                     const inList = items.some(i => !i.bought && i.text === p.name)
                     return (
                       <div key={p.id} style={{ ...s.masterRow, opacity: inList ? 0.4 : 1 }} onClick={() => !inList && addFromMaster(p)}>
                         <span style={{ fontSize: '15px' }}>{p.name}</span>
                         {inList
-                          ? <span style={{ fontSize: '12px', color: 'var(--sage)', fontWeight: 600 }}>ברשימה</span>
-                          : <span style={{ fontSize: '22px', color: 'var(--rose-dark)', fontWeight: 300, lineHeight: 1 }}>+</span>
+                          ? <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 600 }}>ברשימה</span>
+                          : <span style={{ fontSize: '22px', color: 'var(--blue)', fontWeight: 300, lineHeight: 1 }}>+</span>
                         }
                       </div>
                     )
@@ -210,7 +218,10 @@ export default function ShoppingList({ user, profile, listId }) {
         </div>
       )}
 
-      <button style={s.fab} onClick={() => setShowAdd(true)}>+</button>
+      <button style={s.fab} onClick={() => setShowAdd(true)}>
+        <span style={{ fontSize: '22px', lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: '14px', fontWeight: 600 }}>הוסף</span>
+      </button>
     </div>
   )
 }
@@ -218,13 +229,14 @@ export default function ShoppingList({ user, profile, listId }) {
 function ItemRow({ item, onToggle, onDelete, onQtyChange, delay = 0 }) {
   const qty = parseInt(item.qty) || 1
   return (
-    <div className="fade-up" style={{ ...s.row, opacity: item.bought ? 0.5 : 1, animationDelay: `${delay}s` }}>
+    <div className="fade-up" style={{ ...s.row, opacity: item.bought ? 0.55 : 1, animationDelay: `${delay}s` }}>
       <button style={{ ...s.checkbox, ...(item.bought ? s.checkboxDone : {}) }} onClick={onToggle}>
         {item.bought && '✓'}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ ...s.rowText, textDecoration: item.bought ? 'line-through' : 'none' }}>{item.text}</span>
-        <p style={s.rowMeta}>{item.addedBy}</p>
+        <span style={{ ...s.rowText, textDecoration: item.bought ? 'line-through' : 'none', color: item.bought ? 'var(--navy-mid)' : 'var(--navy)' }}>
+          {item.text}
+        </span>
       </div>
       {!item.bought && (
         <div style={s.qtyControl}>
@@ -233,35 +245,36 @@ function ItemRow({ item, onToggle, onDelete, onQtyChange, delay = 0 }) {
           <button style={s.qtyBtn} onClick={() => onQtyChange(1)}>+</button>
         </div>
       )}
-      <button className="btn-ghost" onClick={onDelete} style={{ padding: '4px 8px', fontSize: '17px', color: '#C4A090' }}>×</button>
+      <button className="btn-ghost" onClick={onDelete} style={{ padding: '6px 10px', fontSize: '18px', color: '#9DB4D4' }}>×</button>
     </div>
   )
 }
 
 const s = {
-  page: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: '80px' },
-  summary: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'white', borderBottom: '1px solid var(--cream-dark)' },
-  summaryText: { fontSize: '14px', color: 'var(--espresso-mid)' },
-  masterBtn: { background: 'var(--cream)', border: '1.5px solid var(--rose)', borderRadius: '8px', padding: '7px 14px', fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 600, color: 'var(--rose-dark)', cursor: 'pointer' },
+  page: { flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingBottom: '90px' },
+  summary: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'white', borderBottom: '1px solid var(--bg-dark)' },
+  summaryText: { fontSize: '14px', color: 'var(--navy-mid)', display: 'flex', alignItems: 'center', gap: '4px' },
+  masterBtn: { background: 'var(--blue-light)', border: '1.5px solid var(--blue)', borderRadius: '8px', padding: '8px 14px', fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 600, color: 'var(--blue-dark)', cursor: 'pointer' },
   content: { padding: '8px 16px' },
-  empty: { textAlign: 'center', paddingTop: '60px' },
-  emptyTitle: { fontSize: '17px', fontWeight: 600, marginBottom: '6px' },
-  emptyDesc: { fontSize: '14px', color: 'var(--espresso-mid)' },
-  group: { marginBottom: '4px' },
-  catLabel: { fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--rose-dark)', textTransform: 'uppercase', padding: '10px 4px 4px' },
-  row: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: 'white', borderRadius: '11px', marginBottom: '5px', boxShadow: '0 1px 5px rgba(30,20,16,0.05)' },
-  checkbox: { width: '24px', height: '24px', flexShrink: 0, border: '2px solid var(--rose)', borderRadius: '50%', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', transition: 'all 0.2s' },
-  checkboxDone: { background: 'var(--sage)', borderColor: 'var(--sage)' },
-  rowText: { fontSize: '15px', display: 'block' },
-  rowMeta: { fontSize: '11px', color: '#BBB0A8', marginTop: '2px' },
+  empty: { textAlign: 'center', paddingTop: '70px' },
+  emptyIcon: { fontSize: '48px', marginBottom: '12px' },
+  emptyTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '6px', color: 'var(--navy)' },
+  emptyDesc: { fontSize: '14px', color: 'var(--navy-mid)' },
+  group: { marginBottom: '6px' },
+  catLabel: { fontSize: '12px', fontWeight: 700, color: 'var(--navy-mid)', padding: '12px 4px 5px', display: 'flex', alignItems: 'center', gap: '5px' },
+  catEmoji: { fontSize: '14px' },
+  row: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 12px', background: 'white', borderRadius: '12px', marginBottom: '6px', boxShadow: '0 1px 6px rgba(30,58,95,0.07)', minHeight: '58px' },
+  checkbox: { width: '32px', height: '32px', flexShrink: 0, border: '2.5px solid var(--blue)', borderRadius: '50%', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: 'white', transition: 'all 0.2s' },
+  checkboxDone: { background: 'var(--green)', borderColor: 'var(--green)' },
+  rowText: { fontSize: '16px', display: 'block', fontWeight: 500 },
   boughtSection: { marginTop: '12px' },
-  boughtToggle: { fontSize: '13px', fontWeight: 600, width: '100%', textAlign: 'right', padding: '8px 4px' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(30,20,16,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px' },
+  boughtToggle: { fontSize: '13px', fontWeight: 600, width: '100%', textAlign: 'right', padding: '8px 4px', color: 'var(--navy-mid)' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(10,30,60,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px' },
   panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
-  panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px' },
-  masterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--cream)', borderRadius: '10px', marginBottom: '5px', cursor: 'pointer' },
-  qtyControl: { display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--cream)', borderRadius: '8px', padding: '3px 6px' },
-  qtyBtn: { width: '24px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '18px', fontWeight: 500, color: 'var(--rose-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 },
-  qtyNum: { fontSize: '14px', fontWeight: 700, minWidth: '16px', textAlign: 'center', color: 'var(--espresso)' },
-  fab: { position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '52px', height: '52px', borderRadius: '50%', background: 'var(--espresso)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '28px', fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(30,20,16,0.3)', zIndex: 50, lineHeight: 1 },
+  panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px', color: 'var(--navy)' },
+  masterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--bg)', borderRadius: '10px', marginBottom: '5px', cursor: 'pointer', minHeight: '50px' },
+  qtyControl: { display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg)', borderRadius: '10px', padding: '4px 6px', border: '1.5px solid var(--bg-dark)' },
+  qtyBtn: { width: '30px', height: '30px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '20px', fontWeight: 500, color: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 },
+  qtyNum: { fontSize: '15px', fontWeight: 700, minWidth: '20px', textAlign: 'center', color: 'var(--navy)' },
+  fab: { position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', height: '52px', paddingInline: '28px', borderRadius: '26px', background: 'var(--blue-dark)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 20px rgba(29,78,216,0.4)', zIndex: 50 },
 }

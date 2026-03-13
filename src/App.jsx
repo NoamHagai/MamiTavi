@@ -10,9 +10,9 @@ import MasterProducts from './components/MasterProducts'
 import Settings from './components/Settings'
 
 const TABS = [
-  { id: 'list',     label: 'רשימת קניות' },
-  { id: 'master',   label: 'מוצרים' },
-  { id: 'settings', label: 'הגדרות' },
+  { id: 'list',     label: '🛒 קניות' },
+  { id: 'master',   label: '📦 מוצרים' },
+  { id: 'settings', label: '⚙️ הגדרות' },
 ]
 
 export default function App() {
@@ -42,7 +42,7 @@ export default function App() {
 
   if (user === undefined || (user && liveProfile === undefined)) {
     return (
-      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--rose-dark)', fontFamily: 'var(--font-body)', fontSize: '16px' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--blue)', fontFamily: 'var(--font-body)', fontSize: '16px' }}>
         טוען...
       </div>
     )
@@ -94,31 +94,32 @@ export default function App() {
 }
 
 const s = {
-  shell: { height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto', background: 'var(--cream)' },
+  shell: { height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto', background: 'var(--bg)' },
   header: {
     background: 'white',
-    borderBottom: '1px solid var(--cream-dark)',
+    borderBottom: '1px solid var(--bg-dark)',
     flexShrink: 0,
-    padding: '16px 20px 0',
+    padding: '14px 20px 0',
+    boxShadow: '0 2px 8px rgba(30,58,95,0.06)',
   },
-  headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--espresso)', letterSpacing: '-0.3px' },
-  headerSub: { fontSize: '12px', color: 'var(--rose-dark)', marginTop: '2px', marginBottom: '12px' },
+  headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.3px' },
+  headerSub: { fontSize: '12px', color: 'var(--blue)', marginTop: '2px', marginBottom: '10px' },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   nav: {
     display: 'flex',
-    marginTop: '12px',
+    marginTop: '10px',
   },
   navBtn: {
-    flex: 1, padding: '10px 8px',
+    flex: 1, padding: '11px 8px',
     border: 'none', background: 'transparent',
     fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500,
-    color: 'var(--espresso-mid)', cursor: 'pointer',
-    borderBottom: '2px solid transparent',
+    color: 'var(--navy-mid)', cursor: 'pointer',
+    borderBottom: '3px solid transparent',
     transition: 'all 0.15s',
   },
   navBtnActive: {
-    color: 'var(--espresso)',
+    color: 'var(--blue-dark)',
     fontWeight: 700,
-    borderBottom: '2px solid var(--espresso)',
+    borderBottom: '3px solid var(--blue)',
   },
 }

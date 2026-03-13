@@ -191,7 +191,7 @@ export default function AuthScreen() {
 
         <p style={styles.switchText}>
           {mode === 'login' ? 'אין לך חשבון עדיין? ' : 'יש לך חשבון? '}
-          <button className="btn-ghost" onClick={() => setMode(mode === 'login' ? 'register' : 'login')} style={{ padding: '2px 6px', fontWeight: 600, color: 'var(--rose-dark)' }}>
+          <button className="btn-ghost" onClick={() => setMode(mode === 'login' ? 'register' : 'login')} style={{ padding: '2px 6px', fontWeight: 600, color: 'var(--blue-dark)' }}>
             {mode === 'login' ? 'הירשם בחינם' : 'כניסה'}
           </button>
         </p>
@@ -214,15 +214,15 @@ const styles = {
     position: 'fixed', top: '-80px', right: '-80px',
     width: '360px', height: '360px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle, #E8A598 0%, transparent 70%)',
-    opacity: 0.35, pointerEvents: 'none',
+    background: 'radial-gradient(circle, #93C5FD 0%, transparent 70%)',
+    opacity: 0.4, pointerEvents: 'none',
   },
   bgCircle2: {
     position: 'fixed', bottom: '-60px', left: '-60px',
     width: '280px', height: '280px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle, #C9A96E 0%, transparent 70%)',
-    opacity: 0.25, pointerEvents: 'none',
+    background: 'radial-gradient(circle, #BFDBFE 0%, transparent 70%)',
+    opacity: 0.5, pointerEvents: 'none',
   },
   card: { width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1 },
   logo: { textAlign: 'center', marginBottom: '28px' },
@@ -233,11 +233,11 @@ const styles = {
     color: 'var(--espresso)', letterSpacing: '-0.5px',
     marginBottom: '4px',
   },
-  tagline: { color: 'var(--rose-dark)', fontSize: '14px', fontWeight: 400 },
+  tagline: { color: 'var(--blue)', fontSize: '14px', fontWeight: 400 },
   googleBtn: {
     width: '100%', padding: '13px 20px',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-    border: '1.5px solid #E0D0C8',
+    border: '1.5px solid var(--bg-dark)',
     borderRadius: '10px',
     background: 'white',
     fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 500,
@@ -251,14 +251,14 @@ const styles = {
     marginBottom: '20px',
   },
   dividerLine: {
-    flex: 1, height: '1px', background: 'var(--cream-dark)',
+    flex: 1, height: '1px', background: 'var(--bg-dark)',
   },
   dividerText: {
-    fontSize: '13px', color: '#B8A898', fontWeight: 500,
+    fontSize: '13px', color: 'var(--navy-mid)', fontWeight: 500,
   },
   tabs: {
     display: 'flex', gap: '4px',
-    background: 'var(--cream)',
+    background: 'var(--bg)',
     borderRadius: '12px', padding: '4px',
     marginBottom: '24px',
   },
@@ -269,9 +269,9 @@ const styles = {
     cursor: 'pointer', background: 'transparent',
     color: 'var(--espresso-mid)', transition: 'all 0.2s',
   },
-  tabActive: { background: 'white', color: 'var(--espresso)', boxShadow: '0 2px 8px rgba(44,24,16,0.10)' },
+  tabActive: { background: 'white', color: 'var(--navy)', boxShadow: '0 2px 8px rgba(30,58,95,0.10)' },
   form: { display: 'flex', flexDirection: 'column', gap: '16px' },
   field: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '13px', fontWeight: 500, color: 'var(--espresso-mid)' },
-  switchText: { textAlign: 'center', marginTop: '20px', fontSize: '14px', color: 'var(--espresso-mid)' },
+  label: { fontSize: '13px', fontWeight: 500, color: 'var(--navy-mid)' },
+  switchText: { textAlign: 'center', marginTop: '20px', fontSize: '14px', color: 'var(--navy-mid)' },
 }

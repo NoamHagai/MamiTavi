@@ -175,7 +175,7 @@ export default function ShoppingList({ user, profile, listId }) {
 
       {showMasterPicker && (
         <div style={s.overlay} onClick={e => e.target === e.currentTarget && setShowMasterPicker(false)}>
-          <div className="card fade-up" style={{ ...s.panel, maxHeight: '80dvh', display: 'flex', flexDirection: 'column' }}>
+          <div className="card fade-up" style={{ ...s.panel, maxHeight: '75dvh', display: 'flex', flexDirection: 'column' }}>
             <h3 style={s.panelTitle}>בחר מהרשימה הכללית</h3>
             <input className="input" placeholder="חיפוש..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: '12px', fontSize: '14px' }} />
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -242,9 +242,9 @@ const s = {
   rowMeta: { fontSize: '11px', color: '#BBB0A8', marginTop: '2px' },
   boughtSection: { marginTop: '12px' },
   boughtToggle: { fontSize: '13px', fontWeight: 600, width: '100%', textAlign: 'right', padding: '8px 4px' },
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(30,20,16,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)' },
-  panel: { width: '100%', maxWidth: '480px', borderRadius: '20px 20px 0 0', paddingBottom: '32px' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(30,20,16,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px' },
+  panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
   panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px' },
   masterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--cream)', borderRadius: '10px', marginBottom: '5px', cursor: 'pointer' },
-  fab: { position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', width: '52px', height: '52px', borderRadius: '50%', background: 'var(--espresso)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '28px', fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(30,20,16,0.3)', zIndex: 50, lineHeight: 1 },
+  fab: { position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '52px', height: '52px', borderRadius: '50%', background: 'var(--espresso)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '28px', fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(30,20,16,0.3)', zIndex: 50, lineHeight: 1 },
 }

@@ -64,12 +64,23 @@ export default function App() {
 
   return (
     <div style={s.shell}>
-      {/* Header */}
+      {/* Header + Top nav */}
       <header style={s.header}>
         <h1 style={s.headerTitle}>MamiTavi</h1>
         {liveProfile?.partnerEmail && (
           <p style={s.headerSub}>{liveProfile.name} & {liveProfile.partnerEmail.split('@')[0]}</p>
         )}
+        <nav style={s.nav}>
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              style={{ ...s.navBtn, ...(activeTab === tab.id ? s.navBtnActive : {}) }}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
       {/* Page content */}
@@ -78,19 +89,6 @@ export default function App() {
         {activeTab === 'master'   && <MasterProducts user={user} profile={liveProfile} listId={liveProfile.listId} />}
         {activeTab === 'settings' && <Settings user={user} profile={liveProfile} />}
       </main>
-
-      {/* Bottom nav */}
-      <nav style={s.nav}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            style={{ ...s.navBtn, ...(activeTab === tab.id ? s.navBtnActive : {}) }}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
     </div>
   )
 }
@@ -98,32 +96,29 @@ export default function App() {
 const s = {
   shell: { height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto', background: 'var(--cream)' },
   header: {
-    padding: '16px 20px 12px',
     background: 'white',
     borderBottom: '1px solid var(--cream-dark)',
     flexShrink: 0,
+    padding: '16px 20px 0',
   },
   headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--espresso)', letterSpacing: '-0.3px' },
-  headerSub: { fontSize: '12px', color: 'var(--rose-dark)', marginTop: '2px' },
+  headerSub: { fontSize: '12px', color: 'var(--rose-dark)', marginTop: '2px', marginBottom: '12px' },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   nav: {
     display: 'flex',
-    background: 'white',
-    borderTop: '1px solid var(--cream-dark)',
-    flexShrink: 0,
-    paddingBottom: 'env(safe-area-inset-bottom)',
+    marginTop: '12px',
   },
   navBtn: {
-    flex: 1, padding: '14px 8px',
+    flex: 1, padding: '10px 8px',
     border: 'none', background: 'transparent',
-    fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500,
+    fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500,
     color: 'var(--espresso-mid)', cursor: 'pointer',
-    borderTop: '2px solid transparent',
+    borderBottom: '2px solid transparent',
     transition: 'all 0.15s',
   },
   navBtnActive: {
     color: 'var(--espresso)',
     fontWeight: 700,
-    borderTop: '2px solid var(--espresso)',
+    borderBottom: '2px solid var(--espresso)',
   },
 }

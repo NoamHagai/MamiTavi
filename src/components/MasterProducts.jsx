@@ -155,13 +155,13 @@ const s = {
   rowText: { fontSize: '15px', color: 'var(--espresso)' },
   overlay: {
     position: 'fixed', inset: 0, background: 'rgba(30,20,16,0.4)',
-    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-    zIndex: 100, backdropFilter: 'blur(4px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px',
   },
-  panel: { width: '100%', maxWidth: '480px', borderRadius: '20px 20px 0 0', paddingBottom: '32px' },
+  panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
   panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px' },
   fab: {
-    position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+    position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
     width: '52px', height: '52px', borderRadius: '50%',
     background: 'var(--espresso)', color: 'white',
     border: 'none', cursor: 'pointer', fontSize: '28px', fontWeight: 300,

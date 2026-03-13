@@ -6,19 +6,26 @@ import { useAuth } from './hooks/useAuth'
 import AuthScreen from './components/AuthScreen'
 import InvitePartner from './components/InvitePartner'
 import ShoppingList from './components/ShoppingList'
+import MasterProducts from './components/MasterProducts'
+import Settings from './components/Settings'
+
+const TABS = [
+  { id: 'list',     label: 'רשימת קניות' },
+  { id: 'master',   label: 'מוצרים' },
+  { id: 'settings', label: 'הגדרות' },
+]
 
 export default function App() {
   const { user } = useAuth()
-  const [liveProfile, setLiveProfile] = useState(undefined) // undefined = טוען
+  const [liveProfile, setLiveProfile] = useState(undefined)
+  const [activeTab, setActiveTab] = useState('list')
 
-  // Real-time profile listener
   useEffect(() => {
     if (!user) { setLiveProfile(null); return }
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
       if (snap.exists()) {
         setLiveProfile(snap.data())
       } else {
-        // פרופיל לא קיים עדיין — צור אחד (קורה לפעמים עם Google)
         setDoc(doc(db, 'users', user.uid), {
           uid: user.uid,
           name: user.displayName || 'משתמש',
@@ -27,30 +34,22 @@ export default function App() {
           createdAt: serverTimestamp(),
           partnerEmail: null,
           listId: null,
-        }).then(() => {}) // onSnapshot יתפוס את השינוי אוטומטית
+        })
       }
     })
     return unsub
   }, [user])
 
-  // Loading — מחכים לאימות
   if (user === undefined || (user && liveProfile === undefined)) {
     return (
-      <div style={{
-        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: '16px',
-        fontFamily: 'var(--font-display)', color: 'var(--rose-dark)'
-      }}>
-        <span style={{ fontSize: '52px' }}>🛒</span>
-        <p style={{ fontSize: '18px', fontWeight: 400 }}>טוען...</p>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--rose-dark)', fontFamily: 'var(--font-body)', fontSize: '16px' }}>
+        טוען...
       </div>
     )
   }
 
-  // לא מחובר
   if (!user) return <AuthScreen />
 
-  // מחובר אבל אין רשימה עדיין
   if (!liveProfile?.listId) {
     return (
       <InvitePartner
@@ -63,26 +62,68 @@ export default function App() {
     )
   }
 
-  // האפליקציה הראשית
   return (
-    <ShoppingList
-      user={user}
-      profile={liveProfile}
-      listId={liveProfile.listId}
-    />
+    <div style={s.shell}>
+      {/* Header */}
+      <header style={s.header}>
+        <h1 style={s.headerTitle}>MamiTavi</h1>
+        {liveProfile?.partnerEmail && (
+          <p style={s.headerSub}>{liveProfile.name} & {liveProfile.partnerEmail.split('@')[0]}</p>
+        )}
+      </header>
+
+      {/* Page content */}
+      <main style={s.main}>
+        {activeTab === 'list'     && <ShoppingList user={user} profile={liveProfile} listId={liveProfile.listId} />}
+        {activeTab === 'master'   && <MasterProducts user={user} profile={liveProfile} listId={liveProfile.listId} />}
+        {activeTab === 'settings' && <Settings user={user} profile={liveProfile} />}
+      </main>
+
+      {/* Bottom nav */}
+      <nav style={s.nav}>
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            style={{ ...s.navBtn, ...(activeTab === tab.id ? s.navBtnActive : {}) }}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+    </div>
   )
 }
 
-async function createSoloList(user) {
-  const listRef = doc(collection(db, 'lists'))
-  const listId = listRef.id
-  await setDoc(listRef, {
-    id: listId,
-    members: [user.uid],
-    createdAt: serverTimestamp(),
-    createdBy: user.uid,
-  })
-  await updateDoc(doc(db, 'users', user.uid), { listId })
-  // onSnapshot ב-App יתפוס את השינוי אוטומטית ויעביר לרשימה
+const s = {
+  shell: { height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto', background: 'var(--cream)' },
+  header: {
+    padding: '16px 20px 12px',
+    background: 'white',
+    borderBottom: '1px solid var(--cream-dark)',
+    flexShrink: 0,
+  },
+  headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--espresso)', letterSpacing: '-0.3px' },
+  headerSub: { fontSize: '12px', color: 'var(--rose-dark)', marginTop: '2px' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  nav: {
+    display: 'flex',
+    background: 'white',
+    borderTop: '1px solid var(--cream-dark)',
+    flexShrink: 0,
+    paddingBottom: 'env(safe-area-inset-bottom)',
+  },
+  navBtn: {
+    flex: 1, padding: '14px 8px',
+    border: 'none', background: 'transparent',
+    fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500,
+    color: 'var(--espresso-mid)', cursor: 'pointer',
+    borderTop: '2px solid transparent',
+    transition: 'all 0.15s',
+  },
+  navBtnActive: {
+    color: 'var(--espresso)',
+    fontWeight: 700,
+    borderTop: '2px solid var(--espresso)',
+  },
 }
-

@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, setDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, collection, serverTimestamp, query, where } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import AuthScreen from './components/AuthScreen'
@@ -19,8 +19,10 @@ const TABS = [
 export default function App() {
   const { user } = useAuth()
   const [liveProfile, setLiveProfile] = useState(undefined)
+  const [pendingInvite, setPendingInvite] = useState(null)
   const [activeTab, setActiveTab] = useState('list')
 
+  // Listen to own profile
   useEffect(() => {
     if (!user) { setLiveProfile(null); return }
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
@@ -35,12 +37,23 @@ export default function App() {
           createdAt: serverTimestamp(),
           partnerEmail: null,
           listId: null,
-          pendingInviteFrom: null,
-          pendingInviteTo: null,
         })
       }
     })
     return unsub
+  }, [user])
+
+  // Listen for incoming invitations
+  useEffect(() => {
+    if (!user) { setPendingInvite(null); return }
+    const q = query(
+      collection(db, 'invitations'),
+      where('toUid', '==', user.uid),
+      where('status', '==', 'pending')
+    )
+    return onSnapshot(q, snap => {
+      setPendingInvite(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() })
+    })
   }, [user])
 
   if (user === undefined || (user && liveProfile === undefined)) {
@@ -53,9 +66,9 @@ export default function App() {
 
   if (!user) return <AuthScreen />
 
-  // Incoming invite — must respond before doing anything else
-  if (liveProfile?.pendingInviteFrom) {
-    return <PendingInvite user={user} profile={liveProfile} />
+  // Incoming invite — intercept before anything else
+  if (pendingInvite) {
+    return <PendingInvite user={user} profile={liveProfile} invite={pendingInvite} />
   }
 
   if (!liveProfile?.listId) {
@@ -72,7 +85,6 @@ export default function App() {
 
   return (
     <div style={s.shell}>
-      {/* Header + Top nav */}
       <header style={s.header}>
         <h1 style={s.headerTitle}>MamiTavi</h1>
         {liveProfile?.partnerEmail && (
@@ -91,7 +103,6 @@ export default function App() {
         </nav>
       </header>
 
-      {/* Page content */}
       <main style={s.main}>
         {activeTab === 'list'     && <ShoppingList user={user} profile={liveProfile} listId={liveProfile.listId} />}
         {activeTab === 'master'   && <MasterProducts user={user} profile={liveProfile} listId={liveProfile.listId} />}
@@ -113,10 +124,7 @@ const s = {
   headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--navy)', letterSpacing: '-0.3px' },
   headerSub: { fontSize: '12px', color: 'var(--blue)', marginTop: '2px', marginBottom: '10px' },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  nav: {
-    display: 'flex',
-    marginTop: '10px',
-  },
+  nav: { display: 'flex', marginTop: '10px' },
   navBtn: {
     flex: 1, padding: '11px 8px',
     border: 'none', background: 'transparent',

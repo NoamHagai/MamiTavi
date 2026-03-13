@@ -1,8 +1,8 @@
 // src/components/InvitePartner.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  collection, query, where, getDocs,
-  doc, updateDoc, setDoc, serverTimestamp
+  collection, query, where, getDocs, onSnapshot,
+  doc, updateDoc, setDoc, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import toast from 'react-hot-toast'
@@ -11,10 +11,21 @@ export default function InvitePartner({ user, profile, onDone }) {
   const [partnerEmail, setPartnerEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [skipping, setSkipping] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
+  const [sentInvite, setSentInvite] = useState(null) // pending sent invitation
 
-  // Already sent an invite — show waiting state
-  const waitingFor = profile?.pendingInviteTo
+  // Listen for pending invitation I sent
+  useEffect(() => {
+    const q = query(
+      collection(db, 'invitations'),
+      where('fromUid', '==', user.uid),
+      where('status', '==', 'pending')
+    )
+    return onSnapshot(q, snap => {
+      setSentInvite(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() })
+    })
+  }, [user.uid])
+
+  // If the sent invite was accepted, the profile's listId gets set → App re-routes automatically
 
   async function handleSkip() {
     setSkipping(true)
@@ -22,10 +33,8 @@ export default function InvitePartner({ user, profile, onDone }) {
       const listRef = doc(collection(db, 'lists'))
       const listId = listRef.id
       await setDoc(listRef, {
-        id: listId,
-        members: [user.uid],
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
+        id: listId, members: [user.uid],
+        createdAt: serverTimestamp(), createdBy: user.uid,
       })
       await updateDoc(doc(db, 'users', user.uid), { listId })
       onDone(listId, null)
@@ -39,39 +48,33 @@ export default function InvitePartner({ user, profile, onDone }) {
     e.preventDefault()
     const email = partnerEmail.trim().toLowerCase()
     if (!email) return
-    if (email === profile.email) { toast.error('לא ניתן לשתף עם עצמך 😄'); return }
+    if (email === profile?.email) { toast.error('לא ניתן לשתף עם עצמך 😄'); return }
     setLoading(true)
     try {
       const q = query(collection(db, 'users'), where('email', '==', email))
       const snap = await getDocs(q)
-      if (snap.empty) {
-        toast.error('לא נמצא משתמש עם המייל הזה.')
-        setLoading(false)
-        return
-      }
+      if (snap.empty) { toast.error('לא נמצא משתמש עם המייל הזה.'); setLoading(false); return }
+
       const partnerDoc = snap.docs[0]
       const partnerData = partnerDoc.data()
-      const partnerId = partnerDoc.id
 
-      if (partnerData.partnerEmail || partnerData.pendingInviteFrom) {
-        toast.error('המשתמש כבר מחובר או ממתין לבקשה אחרת')
+      if (partnerData.partnerEmail) {
+        toast.error('המשתמש כבר מחובר לשותף אחר')
         setLoading(false)
         return
       }
 
-      // Write invite to partner's doc (cross-user update — allowed by rules)
-      await updateDoc(doc(db, 'users', partnerId), {
-        pendingInviteFrom: {
-          uid: user.uid,
-          name: profile?.name || user.displayName || 'משתמש',
-          email: profile.email,
-          listId: profile.listId || null,
-        }
-      })
-
-      // Mark self as waiting
-      await updateDoc(doc(db, 'users', user.uid), {
-        pendingInviteTo: email,
+      // Create invitation in its own collection (no cross-user writes!)
+      const inviteRef = doc(collection(db, 'invitations'))
+      await setDoc(inviteRef, {
+        fromUid: user.uid,
+        fromEmail: profile?.email || user.email,
+        fromName: profile?.name || user.displayName || 'משתמש',
+        fromListId: profile?.listId || null,
+        toUid: partnerDoc.id,
+        toEmail: email,
+        status: 'pending',
+        createdAt: serverTimestamp(),
       })
 
       toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
@@ -83,24 +86,16 @@ export default function InvitePartner({ user, profile, onDone }) {
   }
 
   async function handleCancelInvite() {
-    setCancelling(true)
     try {
-      // Find partner and clear their pendingInviteFrom
-      const q = query(collection(db, 'users'), where('email', '==', waitingFor))
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        await updateDoc(doc(db, 'users', snap.docs[0].id), { pendingInviteFrom: null })
-      }
-      // Clear own pendingInviteTo
-      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      await deleteDoc(doc(db, 'invitations', sentInvite.id))
       toast.success('הבקשה בוטלה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
     }
-    setCancelling(false)
   }
 
-  if (waitingFor) {
+  // Waiting state
+  if (sentInvite) {
     return (
       <div style={styles.overlay}>
         <div className="card fade-up" style={styles.panel}>
@@ -108,17 +103,16 @@ export default function InvitePartner({ user, profile, onDone }) {
           <h2 style={styles.title}>ממתין לאישור</h2>
           <p style={styles.desc}>
             נשלחה בקשת שיתוף אל<br />
-            <strong>{waitingFor}</strong>
+            <strong>{sentInvite.toEmail}</strong>
             <br /><br />
             הם יצטרכו לאשר את החיבור מהאפליקציה.
           </p>
           <button
             className="btn-ghost"
             onClick={handleCancelInvite}
-            disabled={cancelling}
             style={{ color: '#EF4444', fontSize: '14px' }}
           >
-            {cancelling ? 'מבטל...' : 'בטל את הבקשה'}
+            בטל בקשה
           </button>
         </div>
       </div>
@@ -143,21 +137,10 @@ export default function InvitePartner({ user, profile, onDone }) {
             onChange={e => setPartnerEmail(e.target.value)}
             dir="ltr"
           />
-          <button
-            className="btn-primary"
-            type="submit"
-            disabled={loading || skipping}
-            style={{ padding: '13px' }}
-          >
+          <button className="btn-primary" type="submit" disabled={loading || skipping} style={{ padding: '13px' }}>
             {loading ? 'שולח...' : 'שלח בקשת שיתוף'}
           </button>
-          <button
-            className="btn-ghost"
-            type="button"
-            onClick={handleSkip}
-            disabled={skipping || loading}
-            style={{ textAlign: 'center' }}
-          >
+          <button className="btn-ghost" type="button" onClick={handleSkip} disabled={skipping || loading} style={{ textAlign: 'center' }}>
             {skipping ? 'יוצר רשימה...' : 'אמשיך לבד בינתיים'}
           </button>
         </form>
@@ -178,8 +161,7 @@ const styles = {
   title: {
     fontFamily: 'var(--font-display)',
     fontSize: '28px', fontWeight: 600,
-    color: 'var(--navy)',
-    marginBottom: '10px',
+    color: 'var(--navy)', marginBottom: '10px',
   },
   desc: { color: 'var(--navy-mid)', fontSize: '14px', lineHeight: 1.6, marginBottom: '24px' },
 }

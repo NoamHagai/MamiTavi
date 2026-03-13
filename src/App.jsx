@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import AuthScreen from './components/AuthScreen'
@@ -8,67 +8,76 @@ import InvitePartner from './components/InvitePartner'
 import ShoppingList from './components/ShoppingList'
 
 export default function App() {
-  const { user, profile, setProfile } = useAuth()
-  const [liveProfile, setLiveProfile] = useState(null)
+  const { user } = useAuth()
+  const [liveProfile, setLiveProfile] = useState(undefined) // undefined = טוען
 
-  // Real-time profile listener (to detect when partner connects)
+  // Real-time profile listener
   useEffect(() => {
-    if (!user) return
+    if (!user) { setLiveProfile(null); return }
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      if (snap.exists()) setLiveProfile(snap.data())
+      if (snap.exists()) {
+        setLiveProfile(snap.data())
+      } else {
+        // פרופיל לא קיים עדיין — צור אחד (קורה לפעמים עם Google)
+        setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          name: user.displayName || 'משתמש',
+          email: user.email?.toLowerCase() || '',
+          isPremium: false,
+          createdAt: serverTimestamp(),
+          partnerEmail: null,
+          listId: null,
+        }).then(() => {}) // onSnapshot יתפוס את השינוי אוטומטית
+      }
     })
     return unsub
   }, [user])
 
-  // Loading
-  if (user === undefined) {
+  // Loading — מחכים לאימות
+  if (user === undefined || (user && liveProfile === undefined)) {
     return (
       <div style={{
-        minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-display)', fontSize: '32px', color: 'var(--rose-dark)'
+        minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: '16px',
+        fontFamily: 'var(--font-display)', color: 'var(--rose-dark)'
       }}>
-        🛒
+        <span style={{ fontSize: '52px' }}>🛒</span>
+        <p style={{ fontSize: '18px', fontWeight: 400 }}>טוען...</p>
       </div>
     )
   }
 
-  // Not logged in
+  // לא מחובר
   if (!user) return <AuthScreen />
 
-  const activeProfile = liveProfile || profile
-
-  // Logged in but no list yet — show invite
-  if (!activeProfile?.listId) {
+  // מחובר אבל אין רשימה עדיין
+  if (!liveProfile?.listId) {
     return (
       <InvitePartner
         user={user}
-        profile={activeProfile}
+        profile={liveProfile}
         onDone={(listId, partnerEmail) => {
           if (listId) {
             setLiveProfile(p => ({ ...p, listId, partnerEmail }))
           } else {
-            // Skipped — create a solo list
-            createSoloList(user, activeProfile, setLiveProfile)
+            createSoloList(user, setLiveProfile)
           }
         }}
       />
     )
   }
 
-  // Main app
+  // האפליקציה הראשית
   return (
     <ShoppingList
       user={user}
-      profile={activeProfile}
-      listId={activeProfile.listId}
+      profile={liveProfile}
+      listId={liveProfile.listId}
     />
   )
 }
 
-// Create a solo list when user skips invite
-async function createSoloList(user, profile, setLiveProfile) {
-  const { doc, setDoc, collection, serverTimestamp, updateDoc } = await import('firebase/firestore')
-  const { db } = await import('./firebase')
+async function createSoloList(user, setLiveProfile) {
   const listRef = doc(collection(db, 'lists'))
   const listId = listRef.id
   await setDoc(listRef, {
@@ -80,3 +89,4 @@ async function createSoloList(user, profile, setLiveProfile) {
   await updateDoc(doc(db, 'users', user.uid), { listId })
   setLiveProfile(p => ({ ...p, listId }))
 }
+

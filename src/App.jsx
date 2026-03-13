@@ -60,7 +60,7 @@ export default function App() {
           if (listId) {
             setLiveProfile(p => ({ ...p, listId, partnerEmail }))
           } else {
-            createSoloList(user, setLiveProfile)
+            createSoloList(user)
           }
         }}
       />
@@ -77,7 +77,7 @@ export default function App() {
   )
 }
 
-async function createSoloList(user, setLiveProfile) {
+async function createSoloList(user) {
   const listRef = doc(collection(db, 'lists'))
   const listId = listRef.id
   await setDoc(listRef, {
@@ -87,6 +87,6 @@ async function createSoloList(user, setLiveProfile) {
     createdBy: user.uid,
   })
   await updateDoc(doc(db, 'users', user.uid), { listId })
-  setLiveProfile(p => ({ ...p, listId }))
+  // onSnapshot ב-App יתפוס את השינוי אוטומטית ויעביר לרשימה
 }
 

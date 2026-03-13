@@ -8,6 +8,7 @@ import InvitePartner from './components/InvitePartner'
 import ShoppingList from './components/ShoppingList'
 import MasterProducts from './components/MasterProducts'
 import Settings from './components/Settings'
+import PendingInvite from './components/PendingInvite'
 
 const TABS = [
   { id: 'list',     label: '🛒 קניות' },
@@ -34,6 +35,8 @@ export default function App() {
           createdAt: serverTimestamp(),
           partnerEmail: null,
           listId: null,
+          pendingInviteFrom: null,
+          pendingInviteTo: null,
         })
       }
     })
@@ -49,6 +52,11 @@ export default function App() {
   }
 
   if (!user) return <AuthScreen />
+
+  // Incoming invite — must respond before doing anything else
+  if (liveProfile?.pendingInviteFrom) {
+    return <PendingInvite user={user} profile={liveProfile} />
+  }
 
   if (!liveProfile?.listId) {
     return (

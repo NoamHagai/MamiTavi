@@ -4,11 +4,12 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if request.auth != null;
-      // owner can do anything; others can only update listId + partnerEmail (for partner linking)
+      // owner can do anything
       allow write: if request.auth.uid == userId;
+      // others can only update these four fields (for partner invite/accept/disconnect)
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['listId', 'partnerEmail']);
+             .hasOnly(['listId', 'partnerEmail', 'pendingInviteFrom', 'pendingInviteTo']);
     }
 
     match /lists/{listId} {

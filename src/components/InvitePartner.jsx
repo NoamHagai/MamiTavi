@@ -11,6 +11,10 @@ export default function InvitePartner({ user, profile, onDone }) {
   const [partnerEmail, setPartnerEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [skipping, setSkipping] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  // Already sent an invite — show waiting state
+  const waitingFor = profile?.pendingInviteTo
 
   async function handleSkip() {
     setSkipping(true)
@@ -26,7 +30,6 @@ export default function InvitePartner({ user, profile, onDone }) {
       await updateDoc(doc(db, 'users', user.uid), { listId })
       onDone(listId, null)
     } catch (err) {
-      console.error('createSoloList error:', err)
       toast.error('שגיאה ביצירת הרשימה: ' + err.message)
       setSkipping(false)
     }
@@ -50,28 +53,76 @@ export default function InvitePartner({ user, profile, onDone }) {
       const partnerData = partnerDoc.data()
       const partnerId = partnerDoc.id
 
-      let listId = profile.listId
-      if (!listId) {
-        const listRef = doc(collection(db, 'lists'))
-        listId = listRef.id
-        await setDoc(listRef, {
-          id: listId,
-          members: [user.uid, partnerId],
-          createdAt: serverTimestamp(),
-          createdBy: user.uid,
-        })
+      if (partnerData.partnerEmail || partnerData.pendingInviteFrom) {
+        toast.error('המשתמש כבר מחובר או ממתין לבקשה אחרת')
+        setLoading(false)
+        return
       }
 
-      await updateDoc(doc(db, 'users', user.uid), { partnerEmail: email, listId })
-      await updateDoc(doc(db, 'users', partnerId), { partnerEmail: profile.email, listId })
+      // Write invite to partner's doc (cross-user update — allowed by rules)
+      await updateDoc(doc(db, 'users', partnerId), {
+        pendingInviteFrom: {
+          uid: user.uid,
+          name: profile?.name || user.displayName || 'משתמש',
+          email: profile.email,
+          listId: profile.listId || null,
+        }
+      })
 
-      toast.success(`${partnerData.name} חובר/ה לרשימה! 💑`)
-      onDone(listId, email)
+      // Mark self as waiting
+      await updateDoc(doc(db, 'users', user.uid), {
+        pendingInviteTo: email,
+      })
+
+      toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
+      setPartnerEmail('')
     } catch (err) {
-      console.error('invite error:', err)
       toast.error('שגיאה: ' + err.message)
     }
     setLoading(false)
+  }
+
+  async function handleCancelInvite() {
+    setCancelling(true)
+    try {
+      // Find partner and clear their pendingInviteFrom
+      const q = query(collection(db, 'users'), where('email', '==', waitingFor))
+      const snap = await getDocs(q)
+      if (!snap.empty) {
+        await updateDoc(doc(db, 'users', snap.docs[0].id), { pendingInviteFrom: null })
+      }
+      // Clear own pendingInviteTo
+      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      toast.success('הבקשה בוטלה')
+    } catch (err) {
+      toast.error('שגיאה: ' + err.message)
+    }
+    setCancelling(false)
+  }
+
+  if (waitingFor) {
+    return (
+      <div style={styles.overlay}>
+        <div className="card fade-up" style={styles.panel}>
+          <div style={styles.icon}>⏳</div>
+          <h2 style={styles.title}>ממתין לאישור</h2>
+          <p style={styles.desc}>
+            נשלחה בקשת שיתוף אל<br />
+            <strong>{waitingFor}</strong>
+            <br /><br />
+            הם יצטרכו לאשר את החיבור מהאפליקציה.
+          </p>
+          <button
+            className="btn-ghost"
+            onClick={handleCancelInvite}
+            disabled={cancelling}
+            style={{ color: '#EF4444', fontSize: '14px' }}
+          >
+            {cancelling ? 'מבטל...' : 'בטל את הבקשה'}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -98,7 +149,7 @@ export default function InvitePartner({ user, profile, onDone }) {
             disabled={loading || skipping}
             style={{ padding: '13px' }}
           >
-            {loading ? 'מחפש...' : 'חבר/י לרשימה'}
+            {loading ? 'שולח...' : 'שלח בקשת שיתוף'}
           </button>
           <button
             className="btn-ghost"
@@ -120,14 +171,15 @@ const styles = {
     minHeight: '100dvh', display: 'flex',
     alignItems: 'center', justifyContent: 'center',
     padding: '24px',
-    background: 'linear-gradient(135deg, var(--cream) 0%, #f9ede4 100%)',
+    background: 'linear-gradient(135deg, var(--bg) 0%, #dbeafe 100%)',
   },
   panel: { width: '100%', maxWidth: '400px', textAlign: 'center' },
   icon: { fontSize: '52px', marginBottom: '16px' },
   title: {
     fontFamily: 'var(--font-display)',
     fontSize: '28px', fontWeight: 600,
+    color: 'var(--navy)',
     marginBottom: '10px',
   },
-  desc: { color: 'var(--espresso-mid)', fontSize: '14px', lineHeight: 1.6, marginBottom: '24px' },
+  desc: { color: 'var(--navy-mid)', fontSize: '14px', lineHeight: 1.6, marginBottom: '24px' },
 }

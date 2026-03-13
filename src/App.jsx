@@ -57,11 +57,7 @@ export default function App() {
         user={user}
         profile={liveProfile}
         onDone={(listId, partnerEmail) => {
-          if (listId) {
-            setLiveProfile(p => ({ ...p, listId, partnerEmail }))
-          } else {
-            createSoloList(user)
-          }
+          if (listId) setLiveProfile(p => ({ ...p, listId, partnerEmail }))
         }}
       />
     )

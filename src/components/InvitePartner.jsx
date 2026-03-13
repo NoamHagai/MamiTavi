@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import {
   collection, query, where, getDocs,
-  doc, updateDoc, setDoc, serverTimestamp, getDoc
+  doc, updateDoc, setDoc, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import toast from 'react-hot-toast'
@@ -10,6 +10,27 @@ import toast from 'react-hot-toast'
 export default function InvitePartner({ user, profile, onDone }) {
   const [partnerEmail, setPartnerEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [skipping, setSkipping] = useState(false)
+
+  async function handleSkip() {
+    setSkipping(true)
+    try {
+      const listRef = doc(collection(db, 'lists'))
+      const listId = listRef.id
+      await setDoc(listRef, {
+        id: listId,
+        members: [user.uid],
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+      })
+      await updateDoc(doc(db, 'users', user.uid), { listId })
+      onDone(listId, null)
+    } catch (err) {
+      console.error('createSoloList error:', err)
+      toast.error('שגיאה ביצירת הרשימה: ' + err.message)
+      setSkipping(false)
+    }
+  }
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -18,11 +39,10 @@ export default function InvitePartner({ user, profile, onDone }) {
     if (email === profile.email) { toast.error('לא ניתן לשתף עם עצמך 😄'); return }
     setLoading(true)
     try {
-      // Find partner by email
       const q = query(collection(db, 'users'), where('email', '==', email))
       const snap = await getDocs(q)
       if (snap.empty) {
-        toast.error('לא נמצא משתמש עם המייל הזה. שתף/י את הקישור לאפליקציה עם בן/בת הזוג כדי שיירשמו.')
+        toast.error('לא נמצא משתמש עם המייל הזה.')
         setLoading(false)
         return
       }
@@ -30,7 +50,6 @@ export default function InvitePartner({ user, profile, onDone }) {
       const partnerData = partnerDoc.data()
       const partnerId = partnerDoc.id
 
-      // Create shared list if not exists
       let listId = profile.listId
       if (!listId) {
         const listRef = doc(collection(db, 'lists'))
@@ -43,21 +62,14 @@ export default function InvitePartner({ user, profile, onDone }) {
         })
       }
 
-      // Update both users
-      await updateDoc(doc(db, 'users', user.uid), {
-        partnerEmail: email,
-        listId,
-      })
-      await updateDoc(doc(db, 'users', partnerId), {
-        partnerEmail: profile.email,
-        listId,
-      })
+      await updateDoc(doc(db, 'users', user.uid), { partnerEmail: email, listId })
+      await updateDoc(doc(db, 'users', partnerId), { partnerEmail: profile.email, listId })
 
-      toast.success(`${partnerData.name} חובר/ה לרשימה שלכם! 💑`)
+      toast.success(`${partnerData.name} חובר/ה לרשימה! 💑`)
       onDone(listId, email)
     } catch (err) {
-      console.error(err)
-      toast.error('משהו השתבש, נסה שוב.')
+      console.error('invite error:', err)
+      toast.error('שגיאה: ' + err.message)
     }
     setLoading(false)
   }
@@ -83,18 +95,19 @@ export default function InvitePartner({ user, profile, onDone }) {
           <button
             className="btn-primary"
             type="submit"
-            disabled={loading}
+            disabled={loading || skipping}
             style={{ padding: '13px' }}
           >
-            {loading ? '...' : 'חבר/י לרשימה'}
+            {loading ? 'מחפש...' : 'חבר/י לרשימה'}
           </button>
           <button
             className="btn-ghost"
             type="button"
-            onClick={onDone}
+            onClick={handleSkip}
+            disabled={skipping || loading}
             style={{ textAlign: 'center' }}
           >
-            אמשיך לבד בינתיים
+            {skipping ? 'יוצר רשימה...' : 'אמשיך לבד בינתיים'}
           </button>
         </form>
       </div>

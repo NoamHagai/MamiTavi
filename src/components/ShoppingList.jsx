@@ -84,6 +84,12 @@ export default function ShoppingList({ user, profile, listId }) {
     await deleteDoc(doc(db, 'lists', listId, 'items', id))
   }
 
+  async function toggleMissing(item) {
+    await updateDoc(doc(db, 'lists', listId, 'items', item.id), {
+      missing: !item.missing,
+    })
+  }
+
   async function updateQty(item, delta) {
     const current = parseInt(item.qty) || 1
     const next = Math.max(1, current + delta)
@@ -147,7 +153,8 @@ export default function ShoppingList({ user, profile, listId }) {
             {grouped[cat].map((item, i) => (
               <ItemRow key={item.id} item={item} delay={i * 0.03}
                 onToggle={() => toggleBought(item)} onDelete={() => deleteItem(item.id)}
-                onQtyChange={delta => updateQty(item, delta)} />
+                onQtyChange={delta => updateQty(item, delta)}
+                onMissing={() => toggleMissing(item)} />
             ))}
           </div>
         ))}
@@ -226,10 +233,10 @@ export default function ShoppingList({ user, profile, listId }) {
   )
 }
 
-function ItemRow({ item, onToggle, onDelete, onQtyChange, delay = 0 }) {
+function ItemRow({ item, onToggle, onDelete, onQtyChange, onMissing, delay = 0 }) {
   const qty = parseInt(item.qty) || 1
   return (
-    <div className="fade-up" style={{ ...s.row, opacity: item.bought ? 0.55 : 1, animationDelay: `${delay}s` }}>
+    <div className="fade-up" style={{ ...s.row, opacity: item.bought ? 0.55 : 1, animationDelay: `${delay}s`, borderRight: item.missing ? '3px solid #EF4444' : '3px solid transparent' }}>
       <button style={{ ...s.checkbox, ...(item.bought ? s.checkboxDone : {}) }} onClick={onToggle}>
         {item.bought && '✓'}
       </button>
@@ -237,13 +244,22 @@ function ItemRow({ item, onToggle, onDelete, onQtyChange, delay = 0 }) {
         <span style={{ ...s.rowText, textDecoration: item.bought ? 'line-through' : 'none', color: item.bought ? 'var(--navy-mid)' : 'var(--navy)' }}>
           {item.text}
         </span>
+        {item.missing && <span style={s.missingBadge}>חסר בסופר</span>}
       </div>
       {!item.bought && (
-        <div style={s.qtyControl}>
-          <button style={s.qtyBtn} onClick={() => onQtyChange(-1)}>−</button>
-          <span style={s.qtyNum}>{qty}</span>
-          <button style={s.qtyBtn} onClick={() => onQtyChange(1)}>+</button>
-        </div>
+        <>
+          <button
+            onClick={onMissing}
+            style={{ ...s.missingBtn, ...(item.missing ? s.missingBtnActive : {}) }}
+          >
+            {item.missing ? '✓ חסר' : 'חסר?'}
+          </button>
+          <div style={s.qtyControl}>
+            <button style={s.qtyBtn} onClick={() => onQtyChange(-1)}>−</button>
+            <span style={s.qtyNum}>{qty}</span>
+            <button style={s.qtyBtn} onClick={() => onQtyChange(1)}>+</button>
+          </div>
+        </>
       )}
       <button className="btn-ghost" onClick={onDelete} style={{ padding: '6px 10px', fontSize: '18px', color: '#9DB4D4' }}>×</button>
     </div>
@@ -273,6 +289,9 @@ const s = {
   panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
   panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px', color: 'var(--navy)' },
   masterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: 'var(--bg)', borderRadius: '10px', marginBottom: '5px', cursor: 'pointer', minHeight: '50px' },
+  missingBadge: { display: 'block', fontSize: '11px', color: '#EF4444', fontWeight: 600, marginTop: '2px' },
+  missingBtn: { fontSize: '12px', fontWeight: 600, padding: '5px 9px', borderRadius: '7px', border: '1.5px solid #FCA5A5', background: 'white', color: '#EF4444', cursor: 'pointer', flexShrink: 0 },
+  missingBtnActive: { background: '#FEE2E2', borderColor: '#EF4444' },
   qtyControl: { display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg)', borderRadius: '10px', padding: '4px 6px', border: '1.5px solid var(--bg-dark)' },
   qtyBtn: { width: '30px', height: '30px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '20px', fontWeight: 500, color: 'var(--blue-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 },
   qtyNum: { fontSize: '15px', fontWeight: 700, minWidth: '20px', textAlign: 'center', color: 'var(--navy)' },

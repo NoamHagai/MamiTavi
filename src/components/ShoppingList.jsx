@@ -84,6 +84,14 @@ export default function ShoppingList({ user, profile, listId }) {
     await deleteDoc(doc(db, 'lists', listId, 'items', id))
   }
 
+  async function updateQty(item, delta) {
+    const current = parseInt(item.qty) || 1
+    const next = Math.max(1, current + delta)
+    await updateDoc(doc(db, 'lists', listId, 'items', item.id), {
+      qty: next === 1 ? null : String(next),
+    })
+  }
+
   async function clearBought() {
     const bought = items.filter(i => i.bought)
     await Promise.all(bought.map(i => deleteDoc(doc(db, 'lists', listId, 'items', i.id))))
@@ -133,7 +141,8 @@ export default function ShoppingList({ user, profile, listId }) {
             <p style={s.catLabel}>{getCatLabel(cat)}</p>
             {grouped[cat].map((item, i) => (
               <ItemRow key={item.id} item={item} delay={i * 0.03}
-                onToggle={() => toggleBought(item)} onDelete={() => deleteItem(item.id)} />
+                onToggle={() => toggleBought(item)} onDelete={() => deleteItem(item.id)}
+                onQtyChange={delta => updateQty(item, delta)} />
             ))}
           </div>
         ))}
@@ -206,19 +215,24 @@ export default function ShoppingList({ user, profile, listId }) {
   )
 }
 
-function ItemRow({ item, onToggle, onDelete, delay = 0 }) {
+function ItemRow({ item, onToggle, onDelete, onQtyChange, delay = 0 }) {
+  const qty = parseInt(item.qty) || 1
   return (
     <div className="fade-up" style={{ ...s.row, opacity: item.bought ? 0.5 : 1, animationDelay: `${delay}s` }}>
       <button style={{ ...s.checkbox, ...(item.bought ? s.checkboxDone : {}) }} onClick={onToggle}>
         {item.bought && '✓'}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ ...s.rowText, textDecoration: item.bought ? 'line-through' : 'none' }}>
-          {item.text}
-          {item.qty && <span style={{ color: 'var(--rose-dark)', fontSize: '13px' }}> × {item.qty}</span>}
-        </span>
+        <span style={{ ...s.rowText, textDecoration: item.bought ? 'line-through' : 'none' }}>{item.text}</span>
         <p style={s.rowMeta}>{item.addedBy}</p>
       </div>
+      {!item.bought && (
+        <div style={s.qtyControl}>
+          <button style={s.qtyBtn} onClick={() => onQtyChange(-1)}>−</button>
+          <span style={s.qtyNum}>{qty}</span>
+          <button style={s.qtyBtn} onClick={() => onQtyChange(1)}>+</button>
+        </div>
+      )}
       <button className="btn-ghost" onClick={onDelete} style={{ padding: '4px 8px', fontSize: '17px', color: '#C4A090' }}>×</button>
     </div>
   )
@@ -246,5 +260,8 @@ const s = {
   panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
   panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px' },
   masterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--cream)', borderRadius: '10px', marginBottom: '5px', cursor: 'pointer' },
+  qtyControl: { display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--cream)', borderRadius: '8px', padding: '3px 6px' },
+  qtyBtn: { width: '24px', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '18px', fontWeight: 500, color: 'var(--rose-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 },
+  qtyNum: { fontSize: '14px', fontWeight: 700, minWidth: '16px', textAlign: 'center', color: 'var(--espresso)' },
   fab: { position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', width: '52px', height: '52px', borderRadius: '50%', background: 'var(--espresso)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '28px', fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(30,20,16,0.3)', zIndex: 50, lineHeight: 1 },
 }

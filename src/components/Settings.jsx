@@ -1,7 +1,7 @@
 // src/components/Settings.jsx
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, updateDoc, writeBatch, setDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, writeBatch, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import toast from 'react-hot-toast'
 
@@ -64,32 +64,45 @@ export default function Settings({ user, profile }) {
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      // צור רשימה חדשה לעצמך
-      const newListRef = doc(collection(db, 'lists'))
-      await setDoc(newListRef, {
-        members: [user.uid],
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-      })
+      const currentListId = profile.listId
+
+      // קח את כל הנתונים מהרשימה המשותפת
+      const [itemsSnap, productsSnap] = await Promise.all([
+        getDocs(collection(db, 'lists', currentListId, 'items')),
+        getDocs(collection(db, 'lists', currentListId, 'products')),
+      ])
+
+      // צור רשימה חדשה לכל אחד והעתק אליה את הנתונים
+      async function createListWithData(uid) {
+        const listRef = doc(collection(db, 'lists'))
+        await setDoc(listRef, {
+          members: [uid],
+          createdAt: serverTimestamp(),
+          createdBy: uid,
+        })
+        await Promise.all([
+          ...itemsSnap.docs.map(d => addDoc(collection(db, 'lists', listRef.id, 'items'), d.data())),
+          ...productsSnap.docs.map(d => addDoc(collection(db, 'lists', listRef.id, 'products'), d.data())),
+        ])
+        return listRef.id
+      }
+
+      const [myListId, partnerListId] = await Promise.all([
+        createListWithData(user.uid),
+        profile.partnerUid ? createListWithData(profile.partnerUid) : null,
+      ])
 
       const batch = writeBatch(db)
       batch.update(doc(db, 'users', user.uid), {
-        partnerEmail: null, partnerUid: null, listId: newListRef.id,
+        partnerEmail: null, partnerUid: null, listId: myListId,
       })
-      if (profile.partnerUid) {
-        // צור רשימה חדשה לשותף
-        const partnerListRef = doc(collection(db, 'lists'))
-        await setDoc(partnerListRef, {
-          members: [profile.partnerUid],
-          createdAt: serverTimestamp(),
-          createdBy: profile.partnerUid,
-        })
+      if (profile.partnerUid && partnerListId) {
         batch.update(doc(db, 'users', profile.partnerUid), {
-          partnerEmail: null, partnerUid: null, listId: partnerListRef.id,
+          partnerEmail: null, partnerUid: null, listId: partnerListId,
         })
       }
       await batch.commit()
-      toast.success('השותף/ה נותק/ה')
+      toast.success('התנתקת בהצלחה — הרשימה שמורה אצל שניכם')
       setConfirmDisconnect(false)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)

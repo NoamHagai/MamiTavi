@@ -98,6 +98,7 @@ function AuthScreen() {
       <div style={a.bgCircle1} /><div style={a.bgCircle2} />
       <div className="card fade-up" style={a.card}>
         <div style={a.logo}>
+          <img src="/logo.png" alt="MamiTavi" style={{ width: '90px', height: '90px', borderRadius: '22px', marginBottom: '12px' }} />
           <h1 style={a.logoText}>MamiTavi</h1>
           <p style={a.logoSub}>מאמי תביא — הרשימה שלנו</p>
         </div>
@@ -344,6 +345,7 @@ export default function App() {
     <div style={s.shell}>
       <header style={s.header}>
         <div style={s.headerTop}>
+          <img src="/logo.png" alt="MamiTavi" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           <h1 style={s.headerTitle}>MamiTavi</h1>
           {profile?.partnerEmail && (
             <p style={s.headerSub}>{profile.nickname || profile.name} & {profile.partnerEmail.split('@')[0]}</p>
@@ -373,7 +375,7 @@ export default function App() {
 const s = {
   shell: { height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: '480px', margin: '0 auto', background: 'var(--bg)' },
   header: { background: 'white', borderBottom: '1px solid var(--bg-dark)', flexShrink: 0, padding: '14px 20px 0', boxShadow: '0 2px 8px rgba(30,58,95,0.06)' },
-  headerTop: { display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '2px' },
+  headerTop: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' },
   headerTitle: { fontSize: '20px', fontWeight: 700, color: 'var(--navy)' },
   headerSub: { fontSize: '12px', color: 'var(--blue)', flexShrink: 0 },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },

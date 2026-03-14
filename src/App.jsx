@@ -156,10 +156,10 @@ function AuthScreen() {
 
 // ─── PendingInvite ────────────────────────────────────────────────────────────
 function PendingInvite({ user, profile, invite }) {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(null) // 'merge' | 'replace' | 'decline'
 
-  async function handleAccept() {
-    setLoading(true)
+  async function handleAccept(merge) {
+    setLoading(merge ? 'merge' : 'replace')
     try {
       const [inviterSnap, accepterSnap] = await Promise.all([
         getDoc(doc(db, 'users', invite.uid)),
@@ -170,17 +170,17 @@ function PendingInvite({ user, profile, invite }) {
 
       if (!inviterListId) {
         toast.error('שגיאה: לא נמצאה רשימה של המזמין')
-        setLoading(false)
+        setLoading(null)
         return
       }
 
-      // שלב 1: הוסף את המאשר כ-member — עכשיו יש לו הרשאת כתיבה לרשימה
+      // שלב 1: הוסף כ-member — עכשיו יש הרשאת כתיבה
       await updateDoc(doc(db, 'lists', inviterListId), {
         members: arrayUnion(user.uid),
       })
 
-      // שלב 2: העתק פריטים ומוצרים מהרשימה הישנה של המאשר
-      if (accepterListId && accepterListId !== inviterListId) {
+      // שלב 2: אם בחר מיזוג — העתק נתונים
+      if (merge && accepterListId && accepterListId !== inviterListId) {
         const [itemsSnap, productsSnap] = await Promise.all([
           getDocs(collection(db, 'lists', accepterListId, 'items')),
           getDocs(collection(db, 'lists', accepterListId, 'products')),
@@ -194,51 +194,91 @@ function PendingInvite({ user, profile, invite }) {
       // שלב 3: עדכן פרופילים
       const batch = writeBatch(db)
       batch.update(doc(db, 'users', user.uid), {
-        partnerUid: invite.uid,
-        partnerEmail: invite.email,
-        pendingInviteFrom: null,
-        listId: inviterListId,
+        partnerUid: invite.uid, partnerEmail: invite.email,
+        pendingInviteFrom: null, listId: inviterListId,
       })
       batch.update(doc(db, 'users', invite.uid), {
-        partnerUid: user.uid,
-        partnerEmail: profile?.email || user.email,
+        partnerUid: user.uid, partnerEmail: profile?.email || user.email,
         pendingInviteTo: null,
       })
       await batch.commit()
       toast.success(`מחובר עם ${invite.name}!`)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
-      setLoading(false)
+      setLoading(null)
     }
   }
 
   async function handleDecline() {
-    const batch = writeBatch(db)
-    batch.update(doc(db, 'users', user.uid), { pendingInviteFrom: null })
-    batch.update(doc(db, 'users', invite.uid), { pendingInviteTo: null })
-    await batch.commit()
-    toast.success('הבקשה נדחתה')
+    setLoading('decline')
+    try {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', user.uid), { pendingInviteFrom: null })
+      batch.update(doc(db, 'users', invite.uid), { pendingInviteTo: null })
+      await batch.commit()
+      toast.success('הבקשה נדחתה')
+    } catch (err) {
+      toast.error('שגיאה: ' + err.message)
+      setLoading(null)
+    }
   }
 
+  const busy = loading !== null
+
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' }}>
-      <div className="card fade-up" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--navy)', marginBottom: '12px' }}>בקשת שיתוף</h2>
-        <p style={{ color: 'var(--navy-mid)', fontSize: '15px', lineHeight: 1.7, marginBottom: '28px' }}>
-          <strong>{invite.name}</strong> מזמין/ת אותך<br />
-          לנהל רשימת קניות משותפת
+    <div style={pi.page}>
+      <div className="card fade-up" style={pi.card}>
+        <h2 style={pi.title}>בקשת שיתוף</h2>
+        <p style={pi.subtitle}>
+          <strong>{invite.name}</strong> מזמין/ת אותך לנהל רשימת קניות משותפת
         </p>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={handleDecline} disabled={loading} style={{ flex: 1, padding: '13px', border: '1.5px solid var(--bg-dark)', borderRadius: '10px', background: 'white', color: 'var(--navy-mid)', fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
-            דחה
+
+        <div style={pi.options}>
+          <button
+            style={{ ...pi.option, ...(loading === 'merge' ? pi.optionActive : {}) }}
+            onClick={() => handleAccept(true)}
+            disabled={busy}
+          >
+            <span style={pi.optionIcon}>⊕</span>
+            <div style={{ textAlign: 'right' }}>
+              <p style={pi.optionTitle}>מזג רשימות</p>
+              <p style={pi.optionDesc}>הפריטים והמוצרים שלך יצטרפו לרשימה של {invite.name}</p>
+            </div>
           </button>
-          <button className="btn-primary" onClick={handleAccept} disabled={loading} style={{ flex: 2, padding: '13px', fontSize: '15px' }}>
-            {loading ? 'מתחבר...' : 'אשר'}
+
+          <button
+            style={{ ...pi.option, ...(loading === 'replace' ? pi.optionActive : {}) }}
+            onClick={() => handleAccept(false)}
+            disabled={busy}
+          >
+            <span style={pi.optionIcon}>→</span>
+            <div style={{ textAlign: 'right' }}>
+              <p style={pi.optionTitle}>השתמש ברשימה של {invite.name}</p>
+              <p style={pi.optionDesc}>תתחיל עם הרשימה של השותף/ת, הנתונים שלך לא יועברו</p>
+            </div>
           </button>
         </div>
+
+        <button onClick={handleDecline} disabled={busy} style={pi.declineBtn}>
+          {loading === 'decline' ? 'דוחה...' : 'דחה את הבקשה'}
+        </button>
       </div>
     </div>
   )
+}
+
+const pi = {
+  page: { minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' },
+  card: { width: '100%', maxWidth: '420px' },
+  title: { fontSize: '22px', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' },
+  subtitle: { fontSize: '15px', color: 'var(--navy-mid)', lineHeight: 1.6, marginBottom: '24px' },
+  options: { display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' },
+  option: { display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', borderRadius: '12px', border: '1.5px solid var(--bg-dark)', background: 'var(--bg)', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-body)', width: '100%' },
+  optionActive: { borderColor: 'var(--blue)', background: 'var(--blue-light)' },
+  optionIcon: { fontSize: '20px', color: 'var(--blue)', flexShrink: 0, width: '28px', textAlign: 'center', fontWeight: 700 },
+  optionTitle: { fontSize: '15px', fontWeight: 700, color: 'var(--navy)', marginBottom: '3px' },
+  optionDesc: { fontSize: '13px', color: 'var(--navy-mid)', lineHeight: 1.4 },
+  declineBtn: { width: '100%', padding: '12px', background: 'transparent', border: '1.5px solid #FCA5A5', borderRadius: '10px', color: '#EF4444', fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' },
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────

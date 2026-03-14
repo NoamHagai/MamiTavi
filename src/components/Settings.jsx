@@ -65,44 +65,54 @@ export default function Settings({ user, profile }) {
     setDisconnecting(true)
     try {
       const currentListId = profile.listId
+      const myUid = user.uid
+      const partnerUid = profile.partnerUid
 
       // קח את כל הנתונים מהרשימה המשותפת
       const [itemsSnap, productsSnap] = await Promise.all([
         getDocs(collection(db, 'lists', currentListId, 'items')),
         getDocs(collection(db, 'lists', currentListId, 'products')),
       ])
+      const itemsData = itemsSnap.docs.map(d => d.data())
+      const productsData = productsSnap.docs.map(d => d.data())
 
-      // צור רשימה חדשה לכל אחד והעתק אליה את הנתונים
-      async function createListWithData(uid) {
-        const listRef = doc(collection(db, 'lists'))
-        await setDoc(listRef, {
-          members: [uid],
-          createdAt: serverTimestamp(),
-          createdBy: uid,
-        })
-        await Promise.all([
-          ...itemsSnap.docs.map(d => addDoc(collection(db, 'lists', listRef.id, 'items'), d.data())),
-          ...productsSnap.docs.map(d => addDoc(collection(db, 'lists', listRef.id, 'products'), d.data())),
-        ])
-        return listRef.id
-      }
+      // צור רשימה חדשה לי — עם שניהם כ-members זמנית
+      const myListRef = doc(collection(db, 'lists'))
+      await setDoc(myListRef, {
+        members: [myUid, partnerUid],
+        createdAt: serverTimestamp(),
+        createdBy: myUid,
+      })
 
-      const [myListId, partnerListId] = await Promise.all([
-        createListWithData(user.uid),
-        profile.partnerUid ? createListWithData(profile.partnerUid) : null,
+      // צור רשימה חדשה לשותף — עם שניהם כ-members זמנית
+      const partnerListRef = doc(collection(db, 'lists'))
+      await setDoc(partnerListRef, {
+        members: [myUid, partnerUid],
+        createdAt: serverTimestamp(),
+        createdBy: partnerUid,
+      })
+
+      // העתק נתונים לשתי הרשימות
+      await Promise.all([
+        ...itemsData.map(d => addDoc(collection(db, 'lists', myListRef.id, 'items'), d)),
+        ...productsData.map(d => addDoc(collection(db, 'lists', myListRef.id, 'products'), d)),
+        ...itemsData.map(d => addDoc(collection(db, 'lists', partnerListRef.id, 'items'), d)),
+        ...productsData.map(d => addDoc(collection(db, 'lists', partnerListRef.id, 'products'), d)),
       ])
 
+      // עדכן members ופרופילים — כל אחד רק עם עצמו
       const batch = writeBatch(db)
-      batch.update(doc(db, 'users', user.uid), {
-        partnerEmail: null, partnerUid: null, listId: myListId,
+      batch.update(doc(db, 'lists', myListRef.id), { members: [myUid] })
+      batch.update(doc(db, 'lists', partnerListRef.id), { members: [partnerUid] })
+      batch.update(doc(db, 'users', myUid), {
+        partnerEmail: null, partnerUid: null, listId: myListRef.id,
       })
-      if (profile.partnerUid && partnerListId) {
-        batch.update(doc(db, 'users', profile.partnerUid), {
-          partnerEmail: null, partnerUid: null, listId: partnerListId,
-        })
-      }
+      batch.update(doc(db, 'users', partnerUid), {
+        partnerEmail: null, partnerUid: null, listId: partnerListRef.id,
+      })
       await batch.commit()
-      toast.success('התנתקת בהצלחה — הרשימה שמורה אצל שניכם')
+
+      toast.success('התנתקת — הרשימה שמורה אצל שניכם')
       setConfirmDisconnect(false)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)

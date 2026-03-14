@@ -21,26 +21,32 @@ export default function App() {
   const [liveProfile, setLiveProfile] = useState(undefined)
   const [activeTab, setActiveTab] = useState('list')
 
-  // Listen to own profile
+  // Listen to own profile — skip stale offline cache to prevent flicker
   useEffect(() => {
     if (!user) { setLiveProfile(null); return }
-    const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      if (snap.exists()) {
-        setLiveProfile(snap.data())
-      } else {
-        setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          name: user.displayName || 'משתמש',
-          email: user.email?.toLowerCase() || '',
-          isPremium: false,
-          createdAt: serverTimestamp(),
-          partnerEmail: null,
-          listId: null,
-          pendingInviteFrom: null,
-          pendingInviteTo: null,
-        })
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      { includeMetadataChanges: true },
+      snap => {
+        if (snap.metadata.fromCache) return  // wait for server-confirmed data
+        if (snap.exists()) {
+          setLiveProfile(snap.data())
+        } else {
+          setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            name: user.displayName || 'משתמש',
+            email: user.email?.toLowerCase() || '',
+            isPremium: false,
+            createdAt: serverTimestamp(),
+            partnerEmail: null,
+            partnerUid: null,
+            listId: null,
+            pendingInviteFrom: null,
+            pendingInviteTo: null,
+          })
+        }
       }
-    })
+    )
     return unsub
   }, [user])
 

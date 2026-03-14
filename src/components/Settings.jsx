@@ -72,15 +72,13 @@ export default function Settings({ user, profile }) {
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      const q = query(collection(db, 'users'), where('email', '==', profile.partnerEmail))
-      const snap = await getDocs(q)
-
       await updateDoc(doc(db, 'lists', profile.listId), { members: [user.uid] })
-      await updateDoc(doc(db, 'users', user.uid), { partnerEmail: null })
+      await updateDoc(doc(db, 'users', user.uid), { partnerEmail: null, partnerUid: null })
 
-      if (!snap.empty) {
-        await updateDoc(doc(db, 'users', snap.docs[0].id), {
+      if (profile.partnerUid) {
+        await updateDoc(doc(db, 'users', profile.partnerUid), {
           partnerEmail: null,
+          partnerUid: null,
           listId: null,
         })
       }

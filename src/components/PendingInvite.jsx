@@ -29,13 +29,15 @@ export default function PendingInvite({ user, profile, invite }) {
       await updateDoc(doc(db, 'users', user.uid), {
         listId,
         partnerEmail: invite.email,
+        partnerUid: invite.uid,
         pendingInviteFrom: null,
       })
 
-      // Update sender's profile (cross-user: only listId + partnerEmail — already in hasOnly rules)
+      // Update sender's profile (cross-user)
       await updateDoc(doc(db, 'users', invite.uid), {
         listId,
         partnerEmail: profile?.email || user.email,
+        partnerUid: user.uid,
       })
 
       toast.success(`מחובר/ת עם ${invite.name}! 💑`)

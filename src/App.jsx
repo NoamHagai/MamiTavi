@@ -161,35 +161,26 @@ function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setLoading(true)
     try {
-      // מצא את ה-listId של המזמין
-      const inviterSnap = await getDoc(doc(db, 'users', invite.uid))
-      const inviterData = inviterSnap.data()
-      let listId = inviterData.listId
-
-      // אם למזמין אין רשימה — צור אחת
-      if (!listId) {
-        const listRef = doc(collection(db, 'lists'))
-        listId = listRef.id
-        await setDoc(listRef, {
-          members: [invite.uid, user.uid],
-          createdAt: serverTimestamp(),
-          createdBy: invite.uid,
-        })
-      } else {
-        // הוסף אותך לרשימה הקיימת
-        await updateDoc(doc(db, 'lists', listId), {
-          members: [invite.uid, user.uid],
-        })
-      }
+      // תמיד צור רשימה משותפת חדשה
+      const listRef = doc(collection(db, 'lists'))
+      await setDoc(listRef, {
+        members: [user.uid, invite.uid],
+        createdAt: serverTimestamp(),
+        createdBy: invite.uid,
+      })
 
       const batch = writeBatch(db)
       batch.update(doc(db, 'users', user.uid), {
-        partnerUid: invite.uid, partnerEmail: invite.email,
-        pendingInviteFrom: null, listId,
+        partnerUid: invite.uid,
+        partnerEmail: invite.email,
+        pendingInviteFrom: null,
+        listId: listRef.id,
       })
       batch.update(doc(db, 'users', invite.uid), {
-        partnerUid: user.uid, partnerEmail: profile.email,
-        pendingInviteTo: null, listId,
+        partnerUid: user.uid,
+        partnerEmail: profile?.email || user.email,
+        pendingInviteTo: null,
+        listId: listRef.id,
       })
       await batch.commit()
       toast.success(`מחובר עם ${invite.name}!`)

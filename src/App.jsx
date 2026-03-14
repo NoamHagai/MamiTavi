@@ -163,8 +163,7 @@ function PendingInvite({ user, profile, invite }) {
     try {
       // קח את הרשימה של המזמין
       const inviterSnap = await getDoc(doc(db, 'users', invite.uid))
-      const inviterData = inviterSnap.data()
-      const listId = inviterData.listId
+      const listId = inviterSnap.data()?.listId
 
       if (!listId) {
         toast.error('שגיאה: לא נמצאה רשימה של המזמין')
@@ -172,23 +171,29 @@ function PendingInvite({ user, profile, invite }) {
         return
       }
 
-      // הוסף את המאשר כ-member לרשימה הקיימת
-      await updateDoc(doc(db, 'lists', listId), {
+      // הכל בבאץ׳ אחד אטומי
+      const batch = writeBatch(db)
+
+      // הוסף את המאשר כ-member לרשימה של המזמין
+      batch.update(doc(db, 'lists', listId), {
         members: [invite.uid, user.uid],
       })
 
-      const batch = writeBatch(db)
+      // עדכן את המאשר
       batch.update(doc(db, 'users', user.uid), {
         partnerUid: invite.uid,
         partnerEmail: invite.email,
         pendingInviteFrom: null,
         listId,
       })
+
+      // עדכן את המזמין
       batch.update(doc(db, 'users', invite.uid), {
         partnerUid: user.uid,
         partnerEmail: profile?.email || user.email,
         pendingInviteTo: null,
       })
+
       await batch.commit()
       toast.success(`מחובר עם ${invite.name}!`)
     } catch (err) {
@@ -257,7 +262,13 @@ export default function App() {
 
   // אם יש משתמש מחובר אבל עדיין אין listId — צור רשימה
   useEffect(() => {
-    if (user && profile && !profile.listId && !profile.pendingInviteFrom) {
+    if (
+      user && profile &&
+      !profile.listId &&
+      !profile.pendingInviteFrom &&
+      !profile.pendingInviteTo &&
+      !profile.partnerUid
+    ) {
       createSoloList(user.uid)
     }
   }, [user, profile])

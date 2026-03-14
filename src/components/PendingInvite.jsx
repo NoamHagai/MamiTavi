@@ -32,11 +32,10 @@ export default function PendingInvite({ user, profile, invite }) {
         pendingInviteFrom: null,
       })
 
-      // Update sender's profile (cross-user: listId + partnerEmail + pendingInviteTo)
+      // Update sender's profile (cross-user: only listId + partnerEmail — already in hasOnly rules)
       await updateDoc(doc(db, 'users', invite.uid), {
         listId,
         partnerEmail: profile?.email || user.email,
-        pendingInviteTo: null,
       })
 
       toast.success(`מחובר/ת עם ${invite.name}! 💑`)
@@ -49,10 +48,8 @@ export default function PendingInvite({ user, profile, invite }) {
   async function handleDecline() {
     setDeclining(true)
     try {
-      // Clear own pendingInviteFrom (self-write)
+      // Clear own pendingInviteFrom (self-write only)
       await updateDoc(doc(db, 'users', user.uid), { pendingInviteFrom: null })
-      // Clear sender's pendingInviteTo (cross-user)
-      await updateDoc(doc(db, 'users', invite.uid), { pendingInviteTo: null })
       toast.success('הבקשה נדחתה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)

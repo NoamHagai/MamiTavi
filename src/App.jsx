@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
 import AuthScreen from './components/AuthScreen'
@@ -43,6 +43,13 @@ export default function App() {
     })
     return unsub
   }, [user])
+
+  // When connected (listId set), clear own pendingInviteTo (self-write — no rules needed)
+  useEffect(() => {
+    if (user && liveProfile?.listId && liveProfile?.pendingInviteTo) {
+      updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
+    }
+  }, [user, liveProfile?.listId, liveProfile?.pendingInviteTo])
 
   if (user === undefined || (user && liveProfile === undefined)) {
     return (

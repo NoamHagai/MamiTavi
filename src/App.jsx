@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useState, useEffect } from 'react'
 import { onAuthStateChanged, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider } from 'firebase/auth'
-import { doc, onSnapshot, setDoc, getDoc, getDocs, addDoc, updateDoc, writeBatch, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, getDoc, getDocs, addDoc, updateDoc, writeBatch, collection, serverTimestamp, arrayUnion } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import ShoppingList from './components/ShoppingList'
 import MasterProducts from './components/MasterProducts'
@@ -161,13 +161,9 @@ function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setLoading(true)
     try {
-      // קח את הנתונים של המזמין והמאשר
-      const [inviterSnap, accepterSnap] = await Promise.all([
-        getDoc(doc(db, 'users', invite.uid)),
-        getDoc(doc(db, 'users', user.uid)),
-      ])
+      // קח את הרשימה של המזמין
+      const inviterSnap = await getDoc(doc(db, 'users', invite.uid))
       const inviterListId = inviterSnap.data()?.listId
-      const accepterListId = accepterSnap.data()?.listId
 
       if (!inviterListId) {
         toast.error('שגיאה: לא נמצאה רשימה של המזמין')
@@ -175,27 +171,13 @@ function PendingInvite({ user, profile, invite }) {
         return
       }
 
-      // העבר פריטים של המאשר לרשימה המשותפת
-      if (accepterListId && accepterListId !== inviterListId) {
-        const [itemsSnap, productsSnap] = await Promise.all([
-          getDocs(collection(db, 'lists', accepterListId, 'items')),
-          getDocs(collection(db, 'lists', accepterListId, 'products')),
-        ])
-        // העתק פריטים
-        await Promise.all(itemsSnap.docs.map(d =>
-          addDoc(collection(db, 'lists', inviterListId, 'items'), d.data())
-        ))
-        // העתק מוצרים
-        await Promise.all(productsSnap.docs.map(d =>
-          addDoc(collection(db, 'lists', inviterListId, 'products'), d.data())
-        ))
-      }
-
-      // הכל בבאץ׳ אחד
-      const batch = writeBatch(db)
-      batch.update(doc(db, 'lists', inviterListId), {
-        members: [invite.uid, user.uid],
+      // הוסף את המאשר כ-member לרשימה של המזמין (arrayUnion — לא מחליף)
+      await updateDoc(doc(db, 'lists', inviterListId), {
+        members: arrayUnion(user.uid),
       })
+
+      // עדכן את שני המשתמשים
+      const batch = writeBatch(db)
       batch.update(doc(db, 'users', user.uid), {
         partnerUid: invite.uid,
         partnerEmail: invite.email,

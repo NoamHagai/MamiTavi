@@ -96,7 +96,10 @@ export default function MasterProducts({ user, listId }) {
       {showAdd && (
         <div style={s.overlay} onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
           <div className="card fade-up" style={s.panel}>
-            <h3 style={s.panelTitle}>הוספת מוצר</h3>
+            <div style={s.panelHeader}>
+              <h3 style={s.panelTitle}>הוספת מוצר</h3>
+              <button style={s.closeBtn} onClick={() => setShowAdd(false)}>×</button>
+            </div>
             <form onSubmit={addProduct} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input className="input" placeholder="שם המוצר..." value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
               <select className="input" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
@@ -112,7 +115,10 @@ export default function MasterProducts({ user, listId }) {
       {editProduct && (
         <div style={s.overlay} onClick={e => e.target === e.currentTarget && setEditProduct(null)}>
           <div className="card fade-up" style={s.panel}>
-            <h3 style={s.panelTitle}>עריכת מוצר</h3>
+            <div style={s.panelHeader}>
+              <h3 style={s.panelTitle}>עריכת מוצר</h3>
+              <button style={s.closeBtn} onClick={() => setEditProduct(null)}>×</button>
+            </div>
             <form onSubmit={saveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input className="input" value={editName} onChange={e => setEditName(e.target.value)} autoFocus />
               <select className="input" value={editCategory} onChange={e => setEditCategory(e.target.value)}>
@@ -145,6 +151,8 @@ const s = {
   rowText: { fontSize: '15px', color: 'var(--navy)', fontWeight: 500 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(10,30,60,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(4px)', padding: '20px' },
   panel: { width: '100%', maxWidth: '440px', borderRadius: '18px', paddingBottom: '24px' },
-  panelTitle: { fontSize: '18px', fontWeight: 700, marginBottom: '18px', color: 'var(--navy)' },
+  panelHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' },
+  panelTitle: { fontSize: '18px', fontWeight: 700, color: 'var(--navy)' },
+  closeBtn: { width: '32px', height: '32px', border: 'none', background: 'var(--bg)', borderRadius: '50%', cursor: 'pointer', fontSize: '20px', color: 'var(--navy-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   fab: { position: 'fixed', bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 16px))', left: '50%', transform: 'translateX(-50%)', height: '54px', paddingInline: '32px', borderRadius: '27px', background: 'var(--blue)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 24px rgba(59,130,246,0.45)', zIndex: 50, fontFamily: 'var(--font-body)' },
 }

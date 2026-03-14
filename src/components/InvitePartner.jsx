@@ -20,6 +20,7 @@ export default function InvitePartner({ user, profile, onDone }) {
       await setDoc(listRef, {
         id: listId, members: [user.uid],
         createdAt: serverTimestamp(), createdBy: user.uid,
+        sublists: [{ id: 'general', name: 'כללי' }],
       })
       await updateDoc(doc(db, 'users', user.uid), { listId })
       onDone(listId, null)
@@ -33,7 +34,7 @@ export default function InvitePartner({ user, profile, onDone }) {
     e.preventDefault()
     const email = partnerEmail.trim().toLowerCase()
     if (!email) return
-    if (email === profile?.email) { toast.error('לא ניתן לשתף עם עצמך 😄'); return }
+    if (email === profile?.email) { toast.error('לא ניתן לשתף עם עצמך'); return }
     setLoading(true)
     try {
       const q = query(collection(db, 'users'), where('email', '==', email))
@@ -69,7 +70,7 @@ export default function InvitePartner({ user, profile, onDone }) {
         pendingInviteTo: { uid: partnerDoc.id, email }
       })
 
-      toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
+      toast.success(`הזמנה נשלחה ל-${partnerData.name}`)
       setPartnerEmail('')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -92,8 +93,7 @@ export default function InvitePartner({ user, profile, onDone }) {
     return (
       <div style={styles.overlay}>
         <div className="card fade-up" style={styles.panel}>
-          <div style={styles.icon}>⏳</div>
-          <h2 style={styles.title}>ממתין לאישור</h2>
+          <h2 style={styles.title}>ההזמנה נשלחה</h2>
           <p style={styles.desc}>
             נשלחה בקשת שיתוף אל<br />
             <strong>{profile.pendingInviteTo.email}</strong>
@@ -115,10 +115,9 @@ export default function InvitePartner({ user, profile, onDone }) {
   return (
     <div style={styles.overlay}>
       <div className="card fade-up" style={styles.panel}>
-        <div style={styles.icon}>💌</div>
-        <h2 style={styles.title}>שתף/י עם בן/בת הזוג</h2>
+        <h2 style={styles.title}>שתף/י עם שותף</h2>
         <p style={styles.desc}>
-          הזינ/י את כתובת המייל של בן/בת זוגך.
+          הזינ/י את כתובת המייל של השותף.
           הם צריכים להיות רשומים לאפליקציה.
         </p>
         <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -150,7 +149,6 @@ const styles = {
     background: 'linear-gradient(135deg, var(--bg) 0%, #dbeafe 100%)',
   },
   panel: { width: '100%', maxWidth: '400px', textAlign: 'center' },
-  icon: { fontSize: '52px', marginBottom: '16px' },
   title: {
     fontFamily: 'var(--font-display)',
     fontSize: '28px', fontWeight: 600,

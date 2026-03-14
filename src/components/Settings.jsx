@@ -139,7 +139,7 @@ export default function Settings({ user, profile }) {
           {/* Waiting for response */}
           {!profile?.partnerEmail && profile?.pendingInviteTo && (
             <div style={s.waitingBox}>
-              <p style={s.waitingText}>ממתין לאישור מ-</p>
+              <p style={s.waitingText}>ההזמנה נשלחה</p>
               <p style={s.waitingEmail}>{profile.pendingInviteTo.email}</p>
               <button className="btn-ghost" onClick={handleCancelInvite} style={{ color: '#EF4444', fontSize: '13px', marginTop: '8px' }}>
                 בטל בקשה
@@ -150,7 +150,7 @@ export default function Settings({ user, profile }) {
           {/* No partner, no pending */}
           {!profile?.partnerEmail && !profile?.pendingInviteTo && (
             <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p style={s.desc}>שלח/י בקשת שיתוף לבן/בת הזוג</p>
+              <p style={s.desc}>שלח/י בקשת שיתוף לשותף</p>
               <input className="input" type="email" placeholder="partner@example.com" value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} dir="ltr" />
               <button className="btn-primary" type="submit" disabled={loading} style={{ padding: '12px' }}>
                 {loading ? 'שולח...' : 'שלח בקשת שיתוף'}

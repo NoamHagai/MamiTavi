@@ -11,9 +11,9 @@ import Settings from './components/Settings'
 import PendingInvite from './components/PendingInvite'
 
 const TABS = [
-  { id: 'list',     label: '🛒 קניות' },
-  { id: 'master',   label: '📦 מוצרים' },
-  { id: 'settings', label: '⚙️ הגדרות' },
+  { id: 'list',     label: 'קניות' },
+  { id: 'master',   label: 'מוצרים' },
+  { id: 'settings', label: 'הגדרות' },
 ]
 
 export default function App() {

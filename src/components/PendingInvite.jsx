@@ -22,6 +22,7 @@ export default function PendingInvite({ user, profile, invite }) {
           members: [invite.uid, user.uid],
           createdAt: serverTimestamp(),
           createdBy: invite.uid,
+          sublists: [{ id: 'general', name: 'כללי' }],
         })
       }
 
@@ -40,7 +41,7 @@ export default function PendingInvite({ user, profile, invite }) {
         partnerUid: user.uid,
       })
 
-      toast.success(`מחובר/ת עם ${invite.name}! 💑`)
+      toast.success(`מחובר/ת עם ${invite.name}`)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
       setAccepting(false)
@@ -62,7 +63,6 @@ export default function PendingInvite({ user, profile, invite }) {
   return (
     <div style={s.overlay}>
       <div className="card fade-up" style={s.panel}>
-        <div style={s.icon}>💌</div>
         <h2 style={s.title}>בקשת שיתוף</h2>
         <p style={s.desc}>
           <strong>{invite.name}</strong>
@@ -101,7 +101,6 @@ const s = {
     background: 'linear-gradient(135deg, var(--bg) 0%, #dbeafe 100%)',
   },
   panel: { width: '100%', maxWidth: '400px', textAlign: 'center' },
-  icon: { fontSize: '56px', marginBottom: '16px' },
   title: {
     fontFamily: 'var(--font-display)',
     fontSize: '26px', fontWeight: 700,

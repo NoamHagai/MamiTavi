@@ -161,12 +161,20 @@ function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setLoading(true)
     try {
-      // תמיד צור רשימה משותפת חדשה
-      const listRef = doc(collection(db, 'lists'))
-      await setDoc(listRef, {
-        members: [user.uid, invite.uid],
-        createdAt: serverTimestamp(),
-        createdBy: invite.uid,
+      // קח את הרשימה של המזמין
+      const inviterSnap = await getDoc(doc(db, 'users', invite.uid))
+      const inviterData = inviterSnap.data()
+      const listId = inviterData.listId
+
+      if (!listId) {
+        toast.error('שגיאה: לא נמצאה רשימה של המזמין')
+        setLoading(false)
+        return
+      }
+
+      // הוסף את המאשר כ-member לרשימה הקיימת
+      await updateDoc(doc(db, 'lists', listId), {
+        members: [invite.uid, user.uid],
       })
 
       const batch = writeBatch(db)
@@ -174,13 +182,12 @@ function PendingInvite({ user, profile, invite }) {
         partnerUid: invite.uid,
         partnerEmail: invite.email,
         pendingInviteFrom: null,
-        listId: listRef.id,
+        listId,
       })
       batch.update(doc(db, 'users', invite.uid), {
         partnerUid: user.uid,
         partnerEmail: profile?.email || user.email,
         pendingInviteTo: null,
-        listId: listRef.id,
       })
       await batch.commit()
       toast.success(`מחובר עם ${invite.name}!`)

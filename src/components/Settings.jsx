@@ -1,21 +1,22 @@
 // src/components/Settings.jsx
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, writeBatch, arrayRemove } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, updateDoc, writeBatch, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import toast from 'react-hot-toast'
 
 export default function Settings({ user, profile }) {
   const [partnerEmail, setPartnerEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   async function handleInvite(e) {
     e.preventDefault()
     const email = partnerEmail.trim().toLowerCase()
     if (!email) return
     if (email === profile?.email) { toast.error('לא ניתן לשתף עם עצמך'); return }
+    if (profile?.partnerEmail) { toast.error('כבר מחובר עם שותף/ה'); return }
     setLoading(true)
     try {
       const q = query(collection(db, 'users'), where('email', '==', email))
@@ -25,16 +26,8 @@ export default function Settings({ user, profile }) {
       const partnerDoc = snap.docs[0]
       const partnerData = partnerDoc.data()
 
-      if (partnerData.partnerEmail) {
-        toast.error('המשתמש כבר מחובר לשותף אחר')
-        setLoading(false)
-        return
-      }
-      if (partnerData.pendingInviteFrom) {
-        toast.error('המשתמש כבר קיבל בקשה ממישהו אחר')
-        setLoading(false)
-        return
-      }
+      if (partnerData.partnerEmail) { toast.error('המשתמש כבר מחובר לשותף אחר'); setLoading(false); return }
+      if (partnerData.pendingInviteFrom) { toast.error('המשתמש כבר קיבל בקשה'); setLoading(false); return }
 
       const batch = writeBatch(db)
       batch.update(doc(db, 'users', partnerDoc.id), {
@@ -42,14 +35,12 @@ export default function Settings({ user, profile }) {
           uid: user.uid,
           email: profile?.email || user.email,
           name: profile?.name || user.displayName || 'משתמש',
-          listId: profile?.listId || null,
         }
       })
       batch.update(doc(db, 'users', user.uid), {
         pendingInviteTo: { uid: partnerDoc.id, email }
       })
       await batch.commit()
-
       toast.success(`הזמנה נשלחה ל-${partnerData.name}`)
       setPartnerEmail('')
     } catch (err) {
@@ -73,17 +64,28 @@ export default function Settings({ user, profile }) {
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      const batch = writeBatch(db)
-      // Remove partner from list members (safe removal — doesn't overwrite other members)
-      batch.update(doc(db, 'lists', profile.listId), {
-        members: profile.partnerUid ? arrayRemove(profile.partnerUid) : [user.uid]
+      // צור רשימה חדשה לעצמך
+      const newListRef = doc(collection(db, 'lists'))
+      await setDoc(newListRef, {
+        members: [user.uid],
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
       })
-      batch.update(doc(db, 'users', user.uid), { partnerEmail: null, partnerUid: null })
+
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', user.uid), {
+        partnerEmail: null, partnerUid: null, listId: newListRef.id,
+      })
       if (profile.partnerUid) {
+        // צור רשימה חדשה לשותף
+        const partnerListRef = doc(collection(db, 'lists'))
+        await setDoc(partnerListRef, {
+          members: [profile.partnerUid],
+          createdAt: serverTimestamp(),
+          createdBy: profile.partnerUid,
+        })
         batch.update(doc(db, 'users', profile.partnerUid), {
-          partnerEmail: null,
-          partnerUid: null,
-          listId: null,
+          partnerEmail: null, partnerUid: null, listId: partnerListRef.id,
         })
       }
       await batch.commit()
@@ -99,38 +101,40 @@ export default function Settings({ user, profile }) {
     <div style={s.page}>
       <div style={s.content}>
 
+        {/* פרטי חשבון */}
         <div style={s.section}>
           <p style={s.sectionTitle}>החשבון שלי</p>
-          <div style={s.infoRow}>
-            <span style={s.infoLabel}>שם</span>
-            <span style={s.infoValue}>{profile?.name || user.displayName || '—'}</span>
+          <div style={s.row}>
+            <span style={s.label}>שם</span>
+            <span style={s.value}>{profile?.name || user.displayName || '—'}</span>
           </div>
-          <div style={{ ...s.infoRow, borderBottom: 'none' }}>
-            <span style={s.infoLabel}>אימייל</span>
-            <span style={s.infoValue} dir="ltr">{user.email}</span>
+          <div style={{ ...s.row, borderBottom: 'none' }}>
+            <span style={s.label}>אימייל</span>
+            <span style={s.value} dir="ltr">{user.email}</span>
           </div>
         </div>
 
+        {/* שותף/ה */}
         <div style={s.section}>
           <p style={s.sectionTitle}>שותף/ה</p>
 
-          {/* Connected */}
+          {/* מחובר */}
           {profile?.partnerEmail && (
             <>
-              <div style={{ ...s.infoRow, borderBottom: confirmDisconnect ? '1px solid var(--bg-dark)' : 'none' }}>
-                <span style={s.infoLabel}>מחובר/ת עם</span>
-                <span style={s.infoValue} dir="ltr">{profile.partnerEmail}</span>
+              <div style={{ ...s.row, borderBottom: confirmDisconnect ? '1px solid var(--bg-dark)' : 'none' }}>
+                <span style={s.label}>מחובר עם</span>
+                <span style={s.value} dir="ltr">{profile.partnerEmail}</span>
               </div>
               {!confirmDisconnect ? (
-                <button className="btn-ghost" onClick={() => setConfirmDisconnect(true)} style={{ marginTop: '12px', color: '#EF4444', fontSize: '13px', padding: '6px 0' }}>
+                <button className="btn-ghost" onClick={() => setConfirmDisconnect(true)} style={{ marginTop: '10px', color: '#EF4444', fontSize: '13px', padding: '4px 0' }}>
                   ניתוק שותף/ה
                 </button>
               ) : (
                 <div style={s.confirmBox}>
-                  <p style={s.confirmText}>לנתק את {profile.partnerEmail}?</p>
-                  <p style={s.confirmSub}>שני החשבונות יתנתקו. הפריטים שלך יישמרו.</p>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button className="btn-ghost" onClick={() => setConfirmDisconnect(false)} style={{ flex: 1, fontSize: '14px' }}>ביטול</button>
+                  <p style={s.confirmTitle}>לנתק את {profile.partnerEmail}?</p>
+                  <p style={s.confirmSub}>כל אחד יקבל רשימה נפרדת משלו.</p>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <button className="btn-ghost" onClick={() => setConfirmDisconnect(false)} style={{ flex: 1 }}>ביטול</button>
                     <button onClick={handleDisconnect} disabled={disconnecting} style={s.disconnectBtn}>
                       {disconnecting ? 'מנתק...' : 'כן, נתק'}
                     </button>
@@ -140,29 +144,30 @@ export default function Settings({ user, profile }) {
             </>
           )}
 
-          {/* Waiting for response */}
+          {/* ממתין לאישור */}
           {!profile?.partnerEmail && profile?.pendingInviteTo && (
-            <div style={s.waitingBox}>
-              <p style={s.waitingText}>ההזמנה נשלחה</p>
-              <p style={s.waitingEmail}>{profile.pendingInviteTo.email}</p>
+            <div style={s.waitBox}>
+              <p style={s.waitText}>ההזמנה נשלחה</p>
+              <p style={s.waitEmail}>{profile.pendingInviteTo.email}</p>
               <button className="btn-ghost" onClick={handleCancelInvite} style={{ color: '#EF4444', fontSize: '13px', marginTop: '8px' }}>
                 בטל בקשה
               </button>
             </div>
           )}
 
-          {/* No partner, no pending */}
+          {/* אין שותף */}
           {!profile?.partnerEmail && !profile?.pendingInviteTo && (
             <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p style={s.desc}>שלח/י בקשת שיתוף לשותף</p>
+              <p style={s.desc}>שלח/י הזמנה לשותף/ה שרשום/ה באפליקציה</p>
               <input className="input" type="email" placeholder="partner@example.com" value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} dir="ltr" />
               <button className="btn-primary" type="submit" disabled={loading} style={{ padding: '12px' }}>
-                {loading ? 'שולח...' : 'שלח בקשת שיתוף'}
+                {loading ? 'שולח...' : 'שלח הזמנה'}
               </button>
             </form>
           )}
         </div>
 
+        {/* התנתקות */}
         <div style={s.section}>
           <button className="btn-secondary" onClick={() => signOut(auth)} style={{ width: '100%', padding: '12px' }}>
             התנתקות
@@ -175,19 +180,19 @@ export default function Settings({ user, profile }) {
 }
 
 const s = {
-  page: { flex: 1, overflowY: 'auto', paddingBottom: '80px' },
+  page: { flex: 1, overflowY: 'auto', paddingBottom: '40px' },
   content: { padding: '16px' },
   section: { background: 'white', borderRadius: '14px', padding: '18px', marginBottom: '12px', boxShadow: '0 1px 6px rgba(30,58,95,0.07)' },
-  sectionTitle: { fontSize: '11px', fontWeight: 700, color: 'var(--blue)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '14px' },
-  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--bg-dark)' },
-  infoLabel: { fontSize: '14px', color: 'var(--navy-mid)' },
-  infoValue: { fontSize: '14px', fontWeight: 600, color: 'var(--navy)' },
-  desc: { fontSize: '14px', color: 'var(--navy-mid)', marginBottom: '4px' },
+  sectionTitle: { fontSize: '11px', fontWeight: 700, color: 'var(--blue-dark)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '14px' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--bg-dark)' },
+  label: { fontSize: '14px', color: 'var(--navy-mid)' },
+  value: { fontSize: '14px', fontWeight: 600, color: 'var(--navy)' },
+  desc: { fontSize: '14px', color: 'var(--navy-mid)' },
   confirmBox: { marginTop: '12px', background: '#FEF2F2', borderRadius: '10px', padding: '12px' },
-  confirmText: { fontSize: '14px', color: '#991B1B', fontWeight: 600, marginBottom: '4px' },
-  confirmSub: { fontSize: '12px', color: '#B91C1C', marginBottom: '10px' },
+  confirmTitle: { fontSize: '14px', color: '#991B1B', fontWeight: 600, marginBottom: '4px' },
+  confirmSub: { fontSize: '12px', color: '#B91C1C' },
   disconnectBtn: { flex: 1, background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 12px', fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' },
-  waitingBox: { textAlign: 'center', padding: '8px 0' },
-  waitingText: { fontSize: '13px', color: 'var(--navy-mid)' },
-  waitingEmail: { fontSize: '15px', fontWeight: 700, color: 'var(--blue-dark)', marginTop: '4px' },
+  waitBox: { textAlign: 'center', padding: '8px 0' },
+  waitText: { fontSize: '13px', color: 'var(--navy-mid)' },
+  waitEmail: { fontSize: '15px', fontWeight: 700, color: 'var(--blue-dark)', marginTop: '4px' },
 }

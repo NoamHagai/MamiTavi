@@ -45,7 +45,7 @@ export default function ShoppingList({ user, profile, listId }) {
       text: newItem.trim(), category: newCategory,
       qty: parseInt(newQty) || 1,
       bought: false,
-      addedBy: profile?.name || user.displayName || 'משתמש',
+      addedBy: profile?.nickname || profile?.name || user.displayName || 'משתמש',
       addedByUid: user.uid, createdAt: serverTimestamp(),
     })
     setNewItem(''); setNewQty(''); setShowAdd(false)
@@ -57,7 +57,7 @@ export default function ShoppingList({ user, profile, listId }) {
     await addDoc(collection(db, 'lists', listId, 'items'), {
       text: product.name, category: product.category,
       qty: 1, bought: false,
-      addedBy: profile?.name || user.displayName || 'משתמש',
+      addedBy: profile?.nickname || profile?.name || user.displayName || 'משתמש',
       addedByUid: user.uid, createdAt: serverTimestamp(),
     })
     toast.success(`${product.name} נוסף`)

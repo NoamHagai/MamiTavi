@@ -346,7 +346,7 @@ export default function App() {
         <div style={s.headerTop}>
           <h1 style={s.headerTitle}>MamiTavi</h1>
           {profile?.partnerEmail && (
-            <p style={s.headerSub}>{profile.name} & {profile.partnerEmail.split('@')[0]}</p>
+            <p style={s.headerSub}>{profile.nickname || profile.name} & {profile.partnerEmail.split('@')[0]}</p>
           )}
         </div>
         <nav style={s.nav}>

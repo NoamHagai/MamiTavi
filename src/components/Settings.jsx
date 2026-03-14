@@ -10,6 +10,22 @@ export default function Settings({ user, profile }) {
   const [loading, setLoading] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [nickname, setNickname] = useState(profile?.nickname || '')
+  const [savingNickname, setSavingNickname] = useState(false)
+
+  async function handleSaveNickname(e) {
+    e.preventDefault()
+    if (!nickname.trim()) return
+    if (nickname.trim() === (profile?.nickname || profile?.name)) return
+    setSavingNickname(true)
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { nickname: nickname.trim() })
+      toast.success('הכינוי עודכן!')
+    } catch (err) {
+      toast.error('שגיאה: ' + err.message)
+    }
+    setSavingNickname(false)
+  }
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -135,6 +151,34 @@ export default function Settings({ user, profile }) {
             <span style={s.label}>אימייל</span>
             <span style={s.value} dir="ltr">{user.email}</span>
           </div>
+        </div>
+
+        {/* כינוי */}
+        <div style={s.section}>
+          <p style={s.sectionTitle}>כינוי</p>
+          <p style={s.desc}>השם שבו האפליקציה תפנה אליך</p>
+          <form onSubmit={handleSaveNickname} style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <input
+              className="input"
+              placeholder={profile?.name || 'הכינוי שלך...'}
+              value={nickname}
+              onChange={e => setNickname(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button
+              className="btn-primary"
+              type="submit"
+              disabled={savingNickname || !nickname.trim()}
+              style={{ padding: '12px 18px', flexShrink: 0 }}
+            >
+              {savingNickname ? '...' : 'שמור'}
+            </button>
+          </form>
+          {profile?.nickname && (
+            <p style={{ fontSize: '12px', color: 'var(--navy-mid)', marginTop: '6px' }}>
+              כינוי נוכחי: <strong>{profile.nickname}</strong>
+            </p>
+          )}
         </div>
 
         {/* שותף/ה */}

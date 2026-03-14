@@ -11,36 +11,35 @@ export default function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setAccepting(true)
     try {
-      let listId = invite.fromListId
+      let listId = invite.listId
       if (listId) {
-        await updateDoc(doc(db, 'lists', listId), { members: [invite.fromUid, user.uid] })
+        await updateDoc(doc(db, 'lists', listId), { members: [invite.uid, user.uid] })
       } else {
         const listRef = doc(collection(db, 'lists'))
         listId = listRef.id
         await setDoc(listRef, {
           id: listId,
-          members: [invite.fromUid, user.uid],
+          members: [invite.uid, user.uid],
           createdAt: serverTimestamp(),
-          createdBy: invite.fromUid,
+          createdBy: invite.uid,
         })
       }
 
-      // Update invitation status
-      await updateDoc(doc(db, 'invitations', invite.id), { status: 'accepted' })
-
-      // Update own profile (self write)
+      // Update own profile (self-write)
       await updateDoc(doc(db, 'users', user.uid), {
         listId,
-        partnerEmail: invite.fromEmail,
+        partnerEmail: invite.email,
+        pendingInviteFrom: null,
       })
 
-      // Update sender's profile (cross-user — only listId + partnerEmail, allowed by rules)
-      await updateDoc(doc(db, 'users', invite.fromUid), {
+      // Update sender's profile (cross-user: listId + partnerEmail + pendingInviteTo)
+      await updateDoc(doc(db, 'users', invite.uid), {
         listId,
         partnerEmail: profile?.email || user.email,
+        pendingInviteTo: null,
       })
 
-      toast.success(`מחובר/ת עם ${invite.fromName}! 💑`)
+      toast.success(`מחובר/ת עם ${invite.name}! 💑`)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
       setAccepting(false)
@@ -50,7 +49,10 @@ export default function PendingInvite({ user, profile, invite }) {
   async function handleDecline() {
     setDeclining(true)
     try {
-      await updateDoc(doc(db, 'invitations', invite.id), { status: 'declined' })
+      // Clear own pendingInviteFrom (self-write)
+      await updateDoc(doc(db, 'users', user.uid), { pendingInviteFrom: null })
+      // Clear sender's pendingInviteTo (cross-user)
+      await updateDoc(doc(db, 'users', invite.uid), { pendingInviteTo: null })
       toast.success('הבקשה נדחתה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -64,9 +66,9 @@ export default function PendingInvite({ user, profile, invite }) {
         <div style={s.icon}>💌</div>
         <h2 style={s.title}>בקשת שיתוף</h2>
         <p style={s.desc}>
-          <strong>{invite.fromName}</strong>
+          <strong>{invite.name}</strong>
           <br />
-          <span style={{ fontSize: '13px', color: 'var(--navy-mid)' }}>{invite.fromEmail}</span>
+          <span style={{ fontSize: '13px', color: 'var(--navy-mid)' }}>{invite.email}</span>
           <br /><br />
           מזמין/ת אותך לנהל רשימת קניות משותפת
         </p>

@@ -1,7 +1,7 @@
 // src/components/Settings.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import toast from 'react-hot-toast'
 
@@ -10,19 +10,6 @@ export default function Settings({ user, profile }) {
   const [loading, setLoading] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
-  const [sentInvite, setSentInvite] = useState(null)
-
-  // Listen for pending invitation I sent
-  useEffect(() => {
-    const q = query(
-      collection(db, 'invitations'),
-      where('fromUid', '==', user.uid),
-      where('status', '==', 'pending')
-    )
-    return onSnapshot(q, snap => {
-      setSentInvite(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() })
-    })
-  }, [user.uid])
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -43,17 +30,25 @@ export default function Settings({ user, profile }) {
         setLoading(false)
         return
       }
+      if (partnerData.pendingInviteFrom) {
+        toast.error('המשתמש כבר קיבל בקשה ממישהו אחר')
+        setLoading(false)
+        return
+      }
 
-      const inviteRef = doc(collection(db, 'invitations'))
-      await setDoc(inviteRef, {
-        fromUid: user.uid,
-        fromEmail: profile?.email || user.email,
-        fromName: profile?.name || user.displayName || 'משתמש',
-        fromListId: profile?.listId || null,
-        toUid: partnerDoc.id,
-        toEmail: email,
-        status: 'pending',
-        createdAt: serverTimestamp(),
+      // Write invite to partner's profile (cross-user)
+      await updateDoc(doc(db, 'users', partnerDoc.id), {
+        pendingInviteFrom: {
+          uid: user.uid,
+          email: profile?.email || user.email,
+          name: profile?.name || user.displayName || 'משתמש',
+          listId: profile?.listId || null,
+        }
+      })
+
+      // Track in own profile (self-write)
+      await updateDoc(doc(db, 'users', user.uid), {
+        pendingInviteTo: { uid: partnerDoc.id, email }
       })
 
       toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
@@ -66,7 +61,8 @@ export default function Settings({ user, profile }) {
 
   async function handleCancelInvite() {
     try {
-      await deleteDoc(doc(db, 'invitations', sentInvite.id))
+      await updateDoc(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
+      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
       toast.success('הבקשה בוטלה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -79,13 +75,9 @@ export default function Settings({ user, profile }) {
       const q = query(collection(db, 'users'), where('email', '==', profile.partnerEmail))
       const snap = await getDocs(q)
 
-      // Remove partner from list members
       await updateDoc(doc(db, 'lists', profile.listId), { members: [user.uid] })
-
-      // Clear own partnerEmail (keep listId — user keeps items)
       await updateDoc(doc(db, 'users', user.uid), { partnerEmail: null })
 
-      // Clear partner's profile (cross-user — only listId + partnerEmail)
       if (!snap.empty) {
         await updateDoc(doc(db, 'users', snap.docs[0].id), {
           partnerEmail: null,
@@ -147,10 +139,10 @@ export default function Settings({ user, profile }) {
           )}
 
           {/* Waiting for response */}
-          {!profile?.partnerEmail && sentInvite && (
+          {!profile?.partnerEmail && profile?.pendingInviteTo && (
             <div style={s.waitingBox}>
               <p style={s.waitingText}>ממתין לאישור מ-</p>
-              <p style={s.waitingEmail}>{sentInvite.toEmail}</p>
+              <p style={s.waitingEmail}>{profile.pendingInviteTo.email}</p>
               <button className="btn-ghost" onClick={handleCancelInvite} style={{ color: '#EF4444', fontSize: '13px', marginTop: '8px' }}>
                 בטל בקשה
               </button>
@@ -158,7 +150,7 @@ export default function Settings({ user, profile }) {
           )}
 
           {/* No partner, no pending */}
-          {!profile?.partnerEmail && !sentInvite && (
+          {!profile?.partnerEmail && !profile?.pendingInviteTo && (
             <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <p style={s.desc}>שלח/י בקשת שיתוף לבן/בת הזוג</p>
               <input className="input" type="email" placeholder="partner@example.com" value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} dir="ltr" />

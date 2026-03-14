@@ -1,8 +1,8 @@
 // src/components/InvitePartner.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
-  collection, query, where, getDocs, onSnapshot,
-  doc, updateDoc, setDoc, serverTimestamp, deleteDoc
+  collection, query, where, getDocs,
+  doc, updateDoc, setDoc, serverTimestamp
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import toast from 'react-hot-toast'
@@ -11,21 +11,6 @@ export default function InvitePartner({ user, profile, onDone }) {
   const [partnerEmail, setPartnerEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [skipping, setSkipping] = useState(false)
-  const [sentInvite, setSentInvite] = useState(null) // pending sent invitation
-
-  // Listen for pending invitation I sent
-  useEffect(() => {
-    const q = query(
-      collection(db, 'invitations'),
-      where('fromUid', '==', user.uid),
-      where('status', '==', 'pending')
-    )
-    return onSnapshot(q, snap => {
-      setSentInvite(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() })
-    })
-  }, [user.uid])
-
-  // If the sent invite was accepted, the profile's listId gets set → App re-routes automatically
 
   async function handleSkip() {
     setSkipping(true)
@@ -63,18 +48,25 @@ export default function InvitePartner({ user, profile, onDone }) {
         setLoading(false)
         return
       }
+      if (partnerData.pendingInviteFrom) {
+        toast.error('המשתמש כבר קיבל בקשה ממישהו אחר')
+        setLoading(false)
+        return
+      }
 
-      // Create invitation in its own collection (no cross-user writes!)
-      const inviteRef = doc(collection(db, 'invitations'))
-      await setDoc(inviteRef, {
-        fromUid: user.uid,
-        fromEmail: profile?.email || user.email,
-        fromName: profile?.name || user.displayName || 'משתמש',
-        fromListId: profile?.listId || null,
-        toUid: partnerDoc.id,
-        toEmail: email,
-        status: 'pending',
-        createdAt: serverTimestamp(),
+      // Write invite into partner's profile (cross-user — only pendingInviteFrom)
+      await updateDoc(doc(db, 'users', partnerDoc.id), {
+        pendingInviteFrom: {
+          uid: user.uid,
+          email: profile?.email || user.email,
+          name: profile?.name || user.displayName || 'משתמש',
+          listId: profile?.listId || null,
+        }
+      })
+
+      // Track sent invite in own profile (self-write)
+      await updateDoc(doc(db, 'users', user.uid), {
+        pendingInviteTo: { uid: partnerDoc.id, email }
       })
 
       toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
@@ -87,15 +79,16 @@ export default function InvitePartner({ user, profile, onDone }) {
 
   async function handleCancelInvite() {
     try {
-      await deleteDoc(doc(db, 'invitations', sentInvite.id))
+      await updateDoc(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
+      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
       toast.success('הבקשה בוטלה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
     }
   }
 
-  // Waiting state
-  if (sentInvite) {
+  // Waiting state — invite sent, waiting for partner to accept
+  if (profile?.pendingInviteTo) {
     return (
       <div style={styles.overlay}>
         <div className="card fade-up" style={styles.panel}>
@@ -103,7 +96,7 @@ export default function InvitePartner({ user, profile, onDone }) {
           <h2 style={styles.title}>ממתין לאישור</h2>
           <p style={styles.desc}>
             נשלחה בקשת שיתוף אל<br />
-            <strong>{sentInvite.toEmail}</strong>
+            <strong>{profile.pendingInviteTo.email}</strong>
             <br /><br />
             הם יצטרכו לאשר את החיבור מהאפליקציה.
           </p>

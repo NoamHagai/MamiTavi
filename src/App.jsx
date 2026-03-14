@@ -161,9 +161,12 @@ function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setLoading(true)
     try {
-      // קח את הרשימה של המזמין
-      const inviterSnap = await getDoc(doc(db, 'users', invite.uid))
+      const [inviterSnap, accepterSnap] = await Promise.all([
+        getDoc(doc(db, 'users', invite.uid)),
+        getDoc(doc(db, 'users', user.uid)),
+      ])
       const inviterListId = inviterSnap.data()?.listId
+      const accepterListId = accepterSnap.data()?.listId
 
       if (!inviterListId) {
         toast.error('שגיאה: לא נמצאה רשימה של המזמין')
@@ -171,12 +174,24 @@ function PendingInvite({ user, profile, invite }) {
         return
       }
 
-      // הוסף את המאשר כ-member לרשימה של המזמין (arrayUnion — לא מחליף)
+      // שלב 1: הוסף את המאשר כ-member — עכשיו יש לו הרשאת כתיבה לרשימה
       await updateDoc(doc(db, 'lists', inviterListId), {
         members: arrayUnion(user.uid),
       })
 
-      // עדכן את שני המשתמשים
+      // שלב 2: העתק פריטים ומוצרים מהרשימה הישנה של המאשר
+      if (accepterListId && accepterListId !== inviterListId) {
+        const [itemsSnap, productsSnap] = await Promise.all([
+          getDocs(collection(db, 'lists', accepterListId, 'items')),
+          getDocs(collection(db, 'lists', accepterListId, 'products')),
+        ])
+        await Promise.all([
+          ...itemsSnap.docs.map(d => addDoc(collection(db, 'lists', inviterListId, 'items'), d.data())),
+          ...productsSnap.docs.map(d => addDoc(collection(db, 'lists', inviterListId, 'products'), d.data())),
+        ])
+      }
+
+      // שלב 3: עדכן פרופילים
       const batch = writeBatch(db)
       batch.update(doc(db, 'users', user.uid), {
         partnerUid: invite.uid,

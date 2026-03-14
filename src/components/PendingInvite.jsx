@@ -1,6 +1,6 @@
 // src/components/PendingInvite.jsx
 import { useState } from 'react'
-import { doc, updateDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, collection, serverTimestamp, writeBatch, arrayUnion } from 'firebase/firestore'
 import { db } from '../firebase'
 import toast from 'react-hot-toast'
 
@@ -11,36 +11,41 @@ export default function PendingInvite({ user, profile, invite }) {
   async function handleAccept() {
     setAccepting(true)
     try {
+      const batch = writeBatch(db)
       let listId = invite.listId
+
       if (listId) {
-        await updateDoc(doc(db, 'lists', listId), { members: [invite.uid, user.uid] })
+        // Add both users to existing list atomically
+        batch.update(doc(db, 'lists', listId), { members: arrayUnion(invite.uid, user.uid) })
       } else {
+        // Create new list
         const listRef = doc(collection(db, 'lists'))
         listId = listRef.id
-        await setDoc(listRef, {
+        batch.set(listRef, {
           id: listId,
           members: [invite.uid, user.uid],
           createdAt: serverTimestamp(),
           createdBy: invite.uid,
-          sublists: [{ id: 'general', name: 'כללי' }],
         })
       }
 
-      // Update own profile (self-write)
-      await updateDoc(doc(db, 'users', user.uid), {
+      // Own profile
+      batch.update(doc(db, 'users', user.uid), {
         listId,
         partnerEmail: invite.email,
         partnerUid: invite.uid,
         pendingInviteFrom: null,
       })
 
-      // Update sender's profile (cross-user)
-      await updateDoc(doc(db, 'users', invite.uid), {
+      // Sender's profile — also clear their pendingInviteTo
+      batch.update(doc(db, 'users', invite.uid), {
         listId,
         partnerEmail: profile?.email || user.email,
         partnerUid: user.uid,
+        pendingInviteTo: null,
       })
 
+      await batch.commit()
       toast.success(`מחובר/ת עם ${invite.name}`)
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -51,8 +56,12 @@ export default function PendingInvite({ user, profile, invite }) {
   async function handleDecline() {
     setDeclining(true)
     try {
-      // Clear own pendingInviteFrom (self-write only)
-      await updateDoc(doc(db, 'users', user.uid), { pendingInviteFrom: null })
+      const batch = writeBatch(db)
+      // Clear own pendingInviteFrom
+      batch.update(doc(db, 'users', user.uid), { pendingInviteFrom: null })
+      // Clear sender's pendingInviteTo so they don't stay stuck on "ההזמנה נשלחה"
+      batch.update(doc(db, 'users', invite.uid), { pendingInviteTo: null })
+      await batch.commit()
       toast.success('הבקשה נדחתה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)

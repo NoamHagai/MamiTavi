@@ -1,9 +1,6 @@
 // src/components/InvitePartner.jsx
 import { useState } from 'react'
-import {
-  collection, query, where, getDocs,
-  doc, updateDoc, setDoc, serverTimestamp
-} from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import toast from 'react-hot-toast'
 
@@ -15,14 +12,15 @@ export default function InvitePartner({ user, profile, onDone }) {
   async function handleSkip() {
     setSkipping(true)
     try {
+      const batch = writeBatch(db)
       const listRef = doc(collection(db, 'lists'))
       const listId = listRef.id
-      await setDoc(listRef, {
+      batch.set(listRef, {
         id: listId, members: [user.uid],
         createdAt: serverTimestamp(), createdBy: user.uid,
-        sublists: [{ id: 'general', name: 'כללי' }],
       })
-      await updateDoc(doc(db, 'users', user.uid), { listId })
+      batch.update(doc(db, 'users', user.uid), { listId })
+      await batch.commit()
       onDone(listId, null)
     } catch (err) {
       toast.error('שגיאה ביצירת הרשימה: ' + err.message)
@@ -55,8 +53,8 @@ export default function InvitePartner({ user, profile, onDone }) {
         return
       }
 
-      // Write invite into partner's profile (cross-user — only pendingInviteFrom)
-      await updateDoc(doc(db, 'users', partnerDoc.id), {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', partnerDoc.id), {
         pendingInviteFrom: {
           uid: user.uid,
           email: profile?.email || user.email,
@@ -64,11 +62,10 @@ export default function InvitePartner({ user, profile, onDone }) {
           listId: profile?.listId || null,
         }
       })
-
-      // Track sent invite in own profile (self-write)
-      await updateDoc(doc(db, 'users', user.uid), {
+      batch.update(doc(db, 'users', user.uid), {
         pendingInviteTo: { uid: partnerDoc.id, email }
       })
+      await batch.commit()
 
       toast.success(`הזמנה נשלחה ל-${partnerData.name}`)
       setPartnerEmail('')
@@ -80,8 +77,10 @@ export default function InvitePartner({ user, profile, onDone }) {
 
   async function handleCancelInvite() {
     try {
-      await updateDoc(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
-      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
+      batch.update(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      await batch.commit()
       toast.success('הבקשה בוטלה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)

@@ -1,7 +1,7 @@
 // src/components/Settings.jsx
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, writeBatch, arrayRemove } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import toast from 'react-hot-toast'
 
@@ -36,8 +36,8 @@ export default function Settings({ user, profile }) {
         return
       }
 
-      // Write invite to partner's profile (cross-user)
-      await updateDoc(doc(db, 'users', partnerDoc.id), {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', partnerDoc.id), {
         pendingInviteFrom: {
           uid: user.uid,
           email: profile?.email || user.email,
@@ -45,13 +45,12 @@ export default function Settings({ user, profile }) {
           listId: profile?.listId || null,
         }
       })
-
-      // Track in own profile (self-write)
-      await updateDoc(doc(db, 'users', user.uid), {
+      batch.update(doc(db, 'users', user.uid), {
         pendingInviteTo: { uid: partnerDoc.id, email }
       })
+      await batch.commit()
 
-      toast.success(`הזמנה נשלחה ל-${partnerData.name}!`)
+      toast.success(`הזמנה נשלחה ל-${partnerData.name}`)
       setPartnerEmail('')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -61,8 +60,10 @@ export default function Settings({ user, profile }) {
 
   async function handleCancelInvite() {
     try {
-      await updateDoc(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
-      await updateDoc(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'users', profile.pendingInviteTo.uid), { pendingInviteFrom: null })
+      batch.update(doc(db, 'users', user.uid), { pendingInviteTo: null })
+      await batch.commit()
       toast.success('הבקשה בוטלה')
     } catch (err) {
       toast.error('שגיאה: ' + err.message)
@@ -72,17 +73,20 @@ export default function Settings({ user, profile }) {
   async function handleDisconnect() {
     setDisconnecting(true)
     try {
-      await updateDoc(doc(db, 'lists', profile.listId), { members: [user.uid] })
-      await updateDoc(doc(db, 'users', user.uid), { partnerEmail: null, partnerUid: null })
-
+      const batch = writeBatch(db)
+      // Remove partner from list members (safe removal — doesn't overwrite other members)
+      batch.update(doc(db, 'lists', profile.listId), {
+        members: profile.partnerUid ? arrayRemove(profile.partnerUid) : [user.uid]
+      })
+      batch.update(doc(db, 'users', user.uid), { partnerEmail: null, partnerUid: null })
       if (profile.partnerUid) {
-        await updateDoc(doc(db, 'users', profile.partnerUid), {
+        batch.update(doc(db, 'users', profile.partnerUid), {
           partnerEmail: null,
           partnerUid: null,
           listId: null,
         })
       }
-
+      await batch.commit()
       toast.success('השותף/ה נותק/ה')
       setConfirmDisconnect(false)
     } catch (err) {

@@ -34,6 +34,9 @@ export default function MasterProducts({ listId, user, profile }) {
   const [showPicker, setShowPicker] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
   const [search, setSearch] = useState('')
+  const [editProduct, setEditProduct] = useState(null)  // { id, name, category }
+  const [editName, setEditName] = useState('')
+  const [editCategory, setEditCategory] = useState('other')
 
   // Listen to list doc for productLists
   useEffect(() => {
@@ -107,6 +110,22 @@ export default function MasterProducts({ listId, user, profile }) {
     await updateDoc(doc(db, 'lists', listId, 'products', product.id), {
       productListIds: updated,
     })
+  }
+
+  function openEdit(p) {
+    setEditProduct(p)
+    setEditName(p.name)
+    setEditCategory(p.category || 'other')
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    if (!editName.trim()) return
+    await updateDoc(doc(db, 'lists', listId, 'products', editProduct.id), {
+      name: editName.trim(),
+      category: editCategory,
+    })
+    setEditProduct(null)
   }
 
   async function addAllToCart(listProducts) {
@@ -219,11 +238,13 @@ export default function MasterProducts({ listId, user, profile }) {
           <div key={cat} style={s.group}>
             <p style={s.catLabel}>{getCat(cat).label}</p>
             {grouped[cat].map(p => (
-              <div key={p.id} className="fade-up" style={s.row}>
-                <span style={s.rowText}>{p.name}</span>
+              <div key={p.id} className="fade-up" style={s.row} onClick={() => openEdit(p)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={s.rowText}>{p.name}</span>
+                </div>
                 <button
                   className="btn-ghost"
-                  onClick={() => activeList === 'general' ? deleteProduct(p.id) : toggleProductInList(p, activeList)}
+                  onClick={e => { e.stopPropagation(); activeList === 'general' ? deleteProduct(p.id) : toggleProductInList(p, activeList) }}
                   style={{ color: 'var(--navy-mid)', padding: '4px 10px', fontSize: '18px' }}
                 >
                   ×
@@ -304,6 +325,30 @@ export default function MasterProducts({ listId, user, profile }) {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit product modal */}
+      {editProduct && (
+        <div style={s.overlay} onClick={e => e.target === e.currentTarget && setEditProduct(null)}>
+          <div className="card fade-up" style={s.panel}>
+            <h3 style={s.panelTitle}>עריכת מוצר</h3>
+            <form onSubmit={saveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input
+                className="input"
+                placeholder="שם המוצר..."
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                autoFocus
+              />
+              <select className="input" value={editCategory} onChange={e => setEditCategory(e.target.value)}>
+                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+              <button className="btn-primary" type="submit" disabled={!editName.trim()} style={{ padding: '13px' }}>
+                שמור
+              </button>
+            </form>
           </div>
         </div>
       )}

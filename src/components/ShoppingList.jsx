@@ -175,7 +175,6 @@ export default function ShoppingList({ user, profile, listId }) {
             </div>
             <form onSubmit={addItem} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input className="input" placeholder="שם הפריט..." value={newItem} onChange={e => setNewItem(e.target.value)} autoFocus />
-              <input className="input" placeholder="כמות" type="number" min="1" value={newQty} onChange={e => setNewQty(e.target.value)} />
               <select className="input" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
                 {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
